@@ -396,3 +396,56 @@ func TempletJSON() Templet {
 	jsonTemplet.Duration = []float64{0, 100}
 	return jsonTemplet
 }
+
+// Check for update
+func CheckUpdate(currentTag string) (err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			err = fmt.Errorf("%v", r)
+		}
+	}()
+	respJson, status, err := request("https://api.github.com/repos/baconator696/Recu-Download/releases/latest", 5, nil, nil, "GET")
+	if err != nil {
+		return
+	} else if status != 200 {
+		return fmt.Errorf("status: %d, %s", status, string(respJson))
+	}
+	var resp any
+	err = json.Unmarshal(respJson, &resp)
+	if err != nil {
+		return
+	}
+	tag := resp.(map[string]any)["tag_name"].(string)
+	tag = strings.ReplaceAll(tag, "v", "")
+	tags := strings.Split(tag, ".")
+	currentTag = strings.ReplaceAll(currentTag, "v", "")
+	currentTags := strings.Split(currentTag, ".")
+	for i, v := range tags {
+		current, err := strconv.Atoi(currentTags[i])
+		if err != nil {
+			continue
+		}
+		latest, err := strconv.Atoi(v)
+		if err != nil {
+			continue
+		}
+		if latest > current {
+			switch i {
+			case 0:
+				fmt.Printf("New Major Release Available: %s\n", tag)
+			case 1:
+				fmt.Printf("New Minor Release Available: %s\n", tag)
+			case 2:
+				if latest % 2 == 0 {
+					fmt.Printf("New Bug Fix Available: %s\n", tag)
+				} else {
+					fmt.Printf("New Hotfix Available: %s\n", tag)
+				}
+			}
+			fmt.Printf("https://github.com/baconator696/Recu-Download/\n\n")
+			return nil
+		}
+	}
+	return nil
+}

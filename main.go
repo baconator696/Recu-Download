@@ -192,6 +192,7 @@ func init() {
 	}()
 }
 func main() {
+	fmt.Printf("Recu %v\n", tag)
 	tools.CheckUpdate(tag)
 	if tools.Argparser(1) == "--help" {
 		fmt.Println("Recurbate:")

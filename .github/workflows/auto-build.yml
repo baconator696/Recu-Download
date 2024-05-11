@@ -17,9 +17,6 @@ jobs:
   
     - uses: actions/checkout@v4
 
-    - name: Set Version
-      shell: bash
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
     - name: Create build files
       run: |
         docker run --rm \

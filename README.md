@@ -9,12 +9,9 @@ First run will generate `config.json`, fill in urls to download and Cookie and U
 		""
 	],
 	"header": {
-		.
 		"Cookie": "",
-		.
 		"User-Agent": ""
 	},
-	.
 }
 ```
 

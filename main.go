@@ -11,6 +11,8 @@ import (
 	"syscall"
 )
 
+var tag string
+
 func parallelService(links []string, header map[string]string, num int, duration []float64) {
 	playlists := make([][]byte, len(links))
 	filenames := make([]string, len(links))

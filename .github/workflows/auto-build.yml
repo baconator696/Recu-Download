@@ -14,8 +14,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+  
     - uses: actions/checkout@v4
-      
+
+    - name: Set Version
+      shell: bash
+      run: echo "VERSION=${GITHUB_REF_NAME#refs/tags/}" >> $GITHUB_ENV
     - name: Create build files
       run: |
         docker run --rm \
@@ -25,21 +29,21 @@ jobs:
         export CGO_ENABLED=0
         export GOOS=linux
         export GOARCH=amd64
-        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-linux-amd64
+        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-linux-amd64
         export GOARCH=arm64
-        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-linux-arm64
+        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-linux-arm64
         
         export GOOS=windows
         export GOARCH=amd64
-        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-windows-amd64.exe
+        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-windows-amd64.exe
         export GOARCH=arm64
-        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-windows-arm64.exe
+        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-windows-arm64.exe
         
         export GOOS=darwin
         export GOARCH=amd64
-        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-macos-amd64
+        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-macos-amd64
         export GOARCH=arm64
-        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-macos-arm64'
+        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-macos-arm64'
 
     - name: Release
       uses: softprops/action-gh-release@v2

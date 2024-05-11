@@ -19,12 +19,13 @@ jobs:
 
     - name: Set Version
       shell: bash
-      run: echo "VERSION=${GITHUB_REF_NAME#refs/tags/}" >> $GITHUB_ENV
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
     - name: Create build files
       run: |
         docker run --rm \
         -v $(pwd):/mnt/ \
         -w /mnt/ \
+        -e VERSION=${GITHUB_REF#refs/tags/} \
         -t golang bash -c '
         export CGO_ENABLED=0
         export GOOS=linux

@@ -190,6 +190,7 @@ func init() {
 	}()
 }
 func main() {
+	tools.CheckUpdate(tag)
 	if tools.Argparser(1) == "--help" {
 		fmt.Println("Recurbate:")
 		fmt.Println("If ran for the first time, json configuration will be generated in the working directory")

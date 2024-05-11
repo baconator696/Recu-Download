@@ -1,0 +1,53 @@
+name: Docker Image CI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+
+    permissions:
+      contents: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Create build files
+      run: |
+        docker run --rm \
+        -v $(pwd):/mnt/ \
+        -w /mnt/ \
+        -t golang bash -c '
+        export CGO_ENABLED=0
+        export GOOS=linux
+        export GOARCH=amd64
+        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-linux-amd64
+        export GOARCH=arm64
+        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-linux-arm64
+        
+        export GOOS=windows
+        export GOARCH=amd64
+        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-windows-amd64.exe
+        export GOARCH=arm64
+        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-windows-arm64.exe
+        
+        export GOOS=darwin
+        export GOARCH=amd64
+        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-macos-amd64
+        export GOARCH=arm64
+        go build -buildvcs=false -v -ldflags="-s -w" -o ./recu-macos-arm64'
+
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          recu-linux-amd64
+          recu-linux-arm64
+          recu-windows-amd64.exe
+          recu-windows-arm64.exe
+          recu-macos-amd64
+          recu-macos-arm64

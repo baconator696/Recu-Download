@@ -1,4 +1,4 @@
-Use `.\recu-windows-amd64.exe "--help"` for more information
+Use `.\recu-windows-amd64.exe --help` for more information
 
 Run with `.\recu-windows-amd64.exe`
 

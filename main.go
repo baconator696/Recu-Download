@@ -13,27 +13,41 @@ import (
 
 var tag string
 
-func parallelService(links []string, header map[string]string, num int, duration []float64) {
-	playlists := make([][]byte, len(links))
-	filenames := make([]string, len(links))
-	for i, link := range links {
-		data, filename, status := tools.RecurbateParser(link, header)
-		if status == "cloudflare" {
-			fmt.Printf("Cloudflare Blocked: Failed on url: %v\n", link)
-		}
-		if status == "cookie" {
-			fmt.Printf("Cookie Expired: Failed on url: %v\n", link)
-		}
-		if status == "wait" {
-			fmt.Printf("Daily View Used: Failed on url: %v\n", link)
-		}
-		if status == "panic" {
-			fmt.Printf("Panic: Failed on url: %v\n", link)
-		}
-		if status == "done" {
-			playlists[i] = data
-			filenames[i] = filename
-		}
+func getPlaylist(url string, header map[string]string) ([]byte, string) {
+	data, filename, status := tools.RecurbateParser(url, header)
+	switch status {
+	case "cloudflare":
+		fmt.Printf("Cloudflare Blocked: Failed on url: %v\n", url)
+	case "cookie":
+		fmt.Printf("Please Log in: Failed on url: %v\n", url)
+	case "wait":
+		fmt.Printf("Daily View Used: Failed on url: %v\n", url)
+	case "panic":
+		fmt.Printf("Panic: Failed on url: %v\n", url)
+	case "done":
+		return data, filename
+	}
+	return nil, ""
+}
+func getVideo(data []byte, filename, url string, config tools.Templet) error {
+	var fail int
+	fail = tools.MuxPlaylist(data, filename, config.Header, config.Num, config.Duration, fail)
+	if fail == 0 {
+		fmt.Printf("Completed: %v:%v\n", filename, url)
+		return nil
+	}
+	fmt.Printf("Download Failed at line: %v\n", fail)
+	err := saveJson(config, fail*-1)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return fmt.Errorf("%d", fail)
+}
+func parallelService(config tools.Templet) {
+	playlists := make([][]byte, len(config.Urls))
+	filenames := make([]string, len(config.Urls))
+	for i, link := range config.Urls {
+		playlists[i], filenames[i] = getPlaylist(link, config.Header)
 	}
 	var wg sync.WaitGroup
 	for i, data := range playlists {
@@ -43,63 +57,32 @@ func parallelService(links []string, header map[string]string, num int, duration
 		wg.Add(1)
 		go func(data []byte, i int) {
 			defer wg.Done()
-			fail := 0
-			fail = tools.MuxPlaylist(data, filenames[i], header, num, duration, fail)
-			if fail == 0 {
-				fmt.Printf("Completed: %v:%v\n", filenames[i], links[i])
+			err := getVideo(data, filenames[i], config.Urls[i], config)
+			if err == nil {
 				return
-			}
-			fmt.Printf("Download Failed at line: %v\n", fail)
-			err := saveJson(links, header, fail*-1, duration)
-			if err != nil {
-				fmt.Println(err)
 			}
 			err = os.WriteFile(filenames[i]+".m3u8", data, 0666)
 			if err != nil {
 				fmt.Println(data)
 				fmt.Printf("Failed to write playlist data: %v\n", err)
 			}
-		}(data,i)
+		}(data, i)
 	}
 	wg.Wait()
 }
-func serialService(links []string, header map[string]string, num int, duration []float64) {
-	playlists := make([][]byte, len(links))
-	filenames := make([]string, len(links))
-	for i, link := range links {
-		data, filename, status := tools.RecurbateParser(link, header)
-		if status == "cloudflare" {
-			fmt.Printf("Cloudflare Blocked: Failed on url: %v\n", link)
-		}
-		if status == "cookie" {
-			fmt.Printf("Cookie Expired: Failed on url: %v\n", link)
-		}
-		if status == "wait" {
-			fmt.Printf("Daily View Used: Failed on url: %v\n", link)
-		}
-		if status == "panic" {
-			fmt.Printf("Panic: Failed on url: %v\n", link)
-		}
-		if status == "done" {
-			playlists[i] = data
-			filenames[i] = filename
-		}
+func serialService(config tools.Templet) {
+	playlists := make([][]byte, len(config.Urls))
+	filenames := make([]string, len(config.Urls))
+	for i, link := range config.Urls {
+		playlists[i], filenames[i] = getPlaylist(link, config.Header)
 	}
 	for i, data := range playlists {
 		if data == nil {
 			continue
 		}
-		fail := 0
-		fmt.Printf("%v/%v",i,len(playlists))
-		fail = tools.MuxPlaylist(data, filenames[i], header, num, duration, fail)
-		if fail == 0 {
-			fmt.Printf("Completed: %v:%v\n", filenames[i], links[i])
+		err := getVideo(data, filenames[i], config.Urls[i], config)
+		if err == nil {
 			continue
-		}
-		fmt.Printf("Download Failed at line: %v\n", fail)
-		err := saveJson(links, header, fail*-1, duration)
-		if err != nil {
-			fmt.Println(err)
 		}
 		err = os.WriteFile(filenames[i]+".m3u8", data, 0666)
 		if err != nil {
@@ -109,64 +92,43 @@ func serialService(links []string, header map[string]string, num int, duration [
 	}
 }
 func downloadPlaylist(links []string, header map[string]string) {
-	i := 0
-	data, filename, status := tools.RecurbateParser(links[i], header)
-	if status == "cloudflare" {
-		fmt.Println("Cloudflare Blocked")
-		os.Exit(3)
-	}
-	if status == "cookie" {
-		fmt.Println("Cookie Expired")
-		os.Exit(3)
-	}
-	if status == "wait" {
-		fmt.Println("Daily View Used")
-		os.Exit(3)
-	}
-	if status == "done" {
+	for _, v := range links {
+		data, filename := getPlaylist(v, header)
+		if data == nil {
+			continue
+		}
 		err := os.WriteFile(filename+".m3u8", data, 0666)
 		if err != nil {
 			fmt.Println(data)
 			fmt.Printf("Failed to write playlist data: %v\n", err)
-			os.Exit(2)
+			continue
 		}
-		fmt.Printf("Completed: %v:%v\n", filename, links[i])
-	}
-	if status == "panic" {
-		os.Exit(69)
+		fmt.Printf("Completed: %v:%v\n", filename, v)
 	}
 }
-func downloadConent(links []string, header map[string]string, num int, duration []float64) {
+func downloadConent(config tools.Templet) {
 	data, err := os.ReadFile(tools.Argparser(3))
 	if err != nil {
 		fmt.Printf("Failed to read playlist: %v\n", err)
-		os.Exit(2)
-	}
-	filename := tools.Argparser(3)
-	filename = strings.ReplaceAll(filename, ".m3u8", "")
-	fail := 0
-	fail = tools.MuxPlaylist(data, filename, header, num, duration, fail)
-	if fail == 0 {
-		fmt.Printf("Completed: %v:%v\n", filename, links[0])
 		return
 	}
-	fmt.Printf("Download Failed at line: %v\n", fail)
-	err = saveJson(links, header, fail*-1, duration)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(2)
+	filename := tools.Argparser(3)
+	if strings.Contains(filename, string(os.PathSeparator)) {
+		tempSplit := strings.Split(filename, string(os.PathSeparator))
+		filename = tempSplit[len(tempSplit)-1]
 	}
-	os.Exit(1)
+	filename = strings.ReplaceAll(filename, ".m3u8", "")
+	getVideo(data, filename, "", config)
 }
-func saveJson(links []string, header map[string]string, num int, duration []float64) (err error){
+func saveJson(config tools.Templet, num int) (err error) {
 	jsonData, err := json.MarshalIndent(tools.Templet{
-		Urls:     links,
-		Header:   header,
+		Urls:     config.Urls,
+		Header:   config.Header,
 		Num:      num,
-		Duration: duration,
+		Duration: config.Duration,
 	}, "", "\t")
 	if err != nil {
-		return fmt.Errorf("error: Parsing Json%v",err)
+		return fmt.Errorf("error: Parsing Json%v", err)
 	}
 	jsonLocation := "config.json"
 	if tools.Argparser(1) != "" {
@@ -174,7 +136,7 @@ func saveJson(links []string, header map[string]string, num int, duration []floa
 	}
 	err = os.WriteFile(jsonLocation, jsonData, 0666)
 	if err != nil {
-		err = fmt.Errorf("error: Saving Json:%v",err)
+		err = fmt.Errorf("error: Saving Json:%v", err)
 		return
 	}
 	return
@@ -212,7 +174,7 @@ func main() {
 	_, err := os.Stat(json_location) // Check if json exists
 	if err != nil {
 		defaultConfig := tools.TempletJSON()
-		saveJson(defaultConfig.Urls, defaultConfig.Header, defaultConfig.Num, defaultConfig.Duration)
+		saveJson(defaultConfig, defaultConfig.Num)
 		fmt.Printf("%v created in working directory\nPlease fill in the %v with the \n\tURLs to Download\n\tCookies\n\tUser-Agent\n", json_location, json_location)
 		return
 	}
@@ -238,16 +200,16 @@ func main() {
 			fmt.Println(err)
 			os.Exit(4)
 		}
-		downloadConent(config.Urls, config.Header, config.Num, config.Duration)
+		downloadConent(config)
 		return
 	} else if tools.Argparser(2) == "playlist" { // Checks if playlist and downloads it
 		downloadPlaylist(config.Urls, config.Header)
 		return
 	} else if tools.Argparser(2) == "series" { // Checks if series and downloads it
-		serialService(config.Urls, config.Header, config.Num, config.Duration)
+		serialService(config)
 		return
 	} else {
-		parallelService(config.Urls, config.Header, config.Num, config.Duration)
+		parallelService(config)
 		return
 	}
 }

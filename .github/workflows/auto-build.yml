@@ -24,24 +24,23 @@ jobs:
         -w /mnt/ \
         -e VERSION=${GITHUB_REF#refs/tags/} \
         -t golang bash -c '
+        git config --global --add safe.directory "*"
         export CGO_ENABLED=0
         export GOOS=linux
         export GOARCH=amd64
-        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-linux-amd64
+        go build -v -ldflags="-X main.tag=${VERSION} -s -w" -o recu-linux-amd64
         export GOARCH=arm64
-        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-linux-arm64
-        
+        go build -v -ldflags="-X main.tag=${VERSION} -s -w" -o recu-linux-arm64
         export GOOS=windows
         export GOARCH=amd64
-        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-windows-amd64.exe
+        go build -v -ldflags="-X main.tag=${VERSION} -s -w" -o recu-windows-amd64.exe
         export GOARCH=arm64
-        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-windows-arm64.exe
-        
+        go build -v -ldflags="-X main.tag=${VERSION} -s -w" -o recu-windows-arm64.exe
         export GOOS=darwin
         export GOARCH=amd64
-        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-macos-amd64
+        go build -v -ldflags="-X main.tag=${VERSION} -s -w" -o recu-macos-amd64
         export GOARCH=arm64
-        go build -buildvcs=false -v -ldflags="-X main.tag=${VERSION} -s -w" -o ./recu-macos-arm64'
+        go build -v -ldflags="-X main.tag=${VERSION} -s -w" -o recu-macos-arm64'
 
     - name: Release
       uses: softprops/action-gh-release@v2

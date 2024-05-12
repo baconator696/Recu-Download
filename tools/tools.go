@@ -445,7 +445,7 @@ func CheckUpdate(currentTag string) (err error) {
 					fmt.Printf("New Hotfix Available: %s\n", tag)
 				}
 			}
-			fmt.Printf("https://github.com/baconator696/Recu-Download/\n\n")
+			fmt.Printf("https://github.com/baconator696/Recu-Download/releases/\n\n")
 			return nil
 		}
 	}

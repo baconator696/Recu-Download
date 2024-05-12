@@ -407,7 +407,7 @@ func CheckUpdate(currentTag string) (err error) {
 			err = fmt.Errorf("%v", r)
 		}
 	}()
-	respJson, status, err := request("https://api.github.com/repos/baconator696/Recu-Download/releases/latest", 5, nil, nil, "GET")
+	respJson, status, err := request("https://api.github.com/repos/baconator696/Recu-Download/releases/latest", 2, nil, nil, "GET")
 	if err != nil {
 		return
 	} else if status != 200 {

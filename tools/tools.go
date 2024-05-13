@@ -167,7 +167,7 @@ func GetVideo(playlist []byte, filename, url string, config Templet) error {
 }
 
 // Muxes the transport streams and saves it to a file
-func parsePlaylist(playlist []byte, filename string, header map[string]string, num int, duration []float64, restart int) int {
+func muxPlaylist(playlist []byte, filename string, header map[string]string, num int, duration []float64, restart int) int {
 	var data []byte
 	var err error
 	var file *os.File

@@ -153,7 +153,7 @@ func GetPlaylist(url string, header map[string]string) ([]byte, string) {
 // Saves video to working directory
 func GetVideo(playlist []byte, filename, url string, config Templet) error {
 	var fail int
-	fail = parsePlaylist(playlist, filename, config.Header, config.Num, config.Duration, fail)
+	fail = muxPlaylist(playlist, filename, config.Header, config.Num, config.Duration, fail)
 	if fail == 0 {
 		fmt.Printf("Completed: %v:%v\n", filename, url)
 		return nil

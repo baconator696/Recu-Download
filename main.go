@@ -91,9 +91,9 @@ func serialService(config tools.Templet) {
 		}
 	}
 }
-func downloadPlaylist(links []string, header map[string]string) {
-	for _, v := range links {
-		data, filename := getPlaylist(v, header)
+func downloadPlaylist(config tools.Templet) {
+	for _, v := range config.Urls {
+		data, filename := getPlaylist(v, config.Header)
 		if data == nil {
 			continue
 		}
@@ -203,7 +203,7 @@ func main() {
 		downloadConent(config)
 		return
 	} else if tools.Argparser(2) == "playlist" { // Checks if playlist and downloads it
-		downloadPlaylist(config.Urls, config.Header)
+		downloadPlaylist(config)
 		return
 	} else if tools.Argparser(2) == "series" { // Checks if series and downloads it
 		serialService(config)

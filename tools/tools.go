@@ -151,19 +151,18 @@ func GetPlaylist(url string, header map[string]string) ([]byte, string) {
 }
 
 // Saves video to working directory
-func GetVideo(playlist []byte, filename, url string, config Templet) error {
-	var fail int
+func GetVideo(playlist []byte, filename, url string, config Templet) (fail int) {
 	fail = muxPlaylist(playlist, filename, config.Header, config.Num, config.Duration, fail)
 	if fail == 0 {
 		fmt.Printf("Completed: %v:%v\n", filename, url)
-		return nil
+		return
 	}
 	fmt.Printf("Download Failed at line: %v\n", fail)
 	err := SaveJson(config, fail*-1)
 	if err != nil {
 		fmt.Println(err)
 	}
-	return fmt.Errorf("%d", fail)
+	return
 }
 
 // Muxes the transport streams and saves it to a file

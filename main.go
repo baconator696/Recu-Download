@@ -27,11 +27,10 @@ func parallelService(config tools.Templet) {
 		wg.Add(1)
 		go func(data []byte, i int) {
 			defer wg.Done()
-			err := tools.GetVideo(data, filenames[i], config.Urls[i], config)
-			if err == nil {
+			if tools.GetVideo(data, filenames[i], config.Urls[i], config) == 0 {
 				return
 			}
-			err = os.WriteFile(filenames[i]+".m3u8", data, 0666)
+			err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
 			if err != nil {
 				fmt.Println(data)
 				fmt.Printf("Failed to write playlist data: %v\n", err)
@@ -50,11 +49,10 @@ func serialService(config tools.Templet) {
 		if data == nil {
 			continue
 		}
-		err := tools.GetVideo(data, filenames[i], config.Urls[i], config)
-		if err == nil {
+		if tools.GetVideo(data, filenames[i], config.Urls[i], config) == 0 {
 			continue
 		}
-		err = os.WriteFile(filenames[i]+".m3u8", data, 0666)
+		err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
 		if err != nil {
 			fmt.Println(data)
 			fmt.Printf("Failed to write playlist data: %v\n", err)

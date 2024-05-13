@@ -13,41 +13,11 @@ import (
 
 var tag string
 
-func getPlaylist(url string, header map[string]string) ([]byte, string) {
-	data, filename, status := tools.RecurbateParser(url, header)
-	switch status {
-	case "cloudflare":
-		fmt.Printf("Cloudflare Blocked: Failed on url: %v\n", url)
-	case "cookie":
-		fmt.Printf("Please Log in: Failed on url: %v\n", url)
-	case "wait":
-		fmt.Printf("Daily View Used: Failed on url: %v\n", url)
-	case "panic":
-		fmt.Printf("Panic: Failed on url: %v\n", url)
-	case "done":
-		return data, filename
-	}
-	return nil, ""
-}
-func getVideo(data []byte, filename, url string, config tools.Templet) error {
-	var fail int
-	fail = tools.MuxPlaylist(data, filename, config.Header, config.Num, config.Duration, fail)
-	if fail == 0 {
-		fmt.Printf("Completed: %v:%v\n", filename, url)
-		return nil
-	}
-	fmt.Printf("Download Failed at line: %v\n", fail)
-	err := saveJson(config, fail*-1)
-	if err != nil {
-		fmt.Println(err)
-	}
-	return fmt.Errorf("%d", fail)
-}
 func parallelService(config tools.Templet) {
 	playlists := make([][]byte, len(config.Urls))
 	filenames := make([]string, len(config.Urls))
 	for i, link := range config.Urls {
-		playlists[i], filenames[i] = getPlaylist(link, config.Header)
+		playlists[i], filenames[i] = tools.GetPlaylist(link, config.Header)
 	}
 	var wg sync.WaitGroup
 	for i, data := range playlists {
@@ -57,7 +27,7 @@ func parallelService(config tools.Templet) {
 		wg.Add(1)
 		go func(data []byte, i int) {
 			defer wg.Done()
-			err := getVideo(data, filenames[i], config.Urls[i], config)
+			err := tools.GetVideo(data, filenames[i], config.Urls[i], config)
 			if err == nil {
 				return
 			}
@@ -74,13 +44,13 @@ func serialService(config tools.Templet) {
 	playlists := make([][]byte, len(config.Urls))
 	filenames := make([]string, len(config.Urls))
 	for i, link := range config.Urls {
-		playlists[i], filenames[i] = getPlaylist(link, config.Header)
+		playlists[i], filenames[i] = tools.GetPlaylist(link, config.Header)
 	}
 	for i, data := range playlists {
 		if data == nil {
 			continue
 		}
-		err := getVideo(data, filenames[i], config.Urls[i], config)
+		err := tools.GetVideo(data, filenames[i], config.Urls[i], config)
 		if err == nil {
 			continue
 		}
@@ -93,7 +63,7 @@ func serialService(config tools.Templet) {
 }
 func downloadPlaylist(config tools.Templet) {
 	for _, v := range config.Urls {
-		data, filename := getPlaylist(v, config.Header)
+		data, filename := tools.GetPlaylist(v, config.Header)
 		if data == nil {
 			continue
 		}
@@ -118,28 +88,7 @@ func downloadConent(config tools.Templet) {
 		filename = tempSplit[len(tempSplit)-1]
 	}
 	filename = strings.ReplaceAll(filename, ".m3u8", "")
-	getVideo(data, filename, "", config)
-}
-func saveJson(config tools.Templet, num int) (err error) {
-	jsonData, err := json.MarshalIndent(tools.Templet{
-		Urls:     config.Urls,
-		Header:   config.Header,
-		Num:      num,
-		Duration: config.Duration,
-	}, "", "\t")
-	if err != nil {
-		return fmt.Errorf("error: Parsing Json%v", err)
-	}
-	jsonLocation := "config.json"
-	if tools.Argparser(1) != "" {
-		jsonLocation = tools.Argparser(1)
-	}
-	err = os.WriteFile(jsonLocation, jsonData, 0666)
-	if err != nil {
-		err = fmt.Errorf("error: Saving Json:%v", err)
-		return
-	}
-	return
+	tools.GetVideo(data, filename, "", config)
 }
 func init() {
 	go func() {
@@ -174,7 +123,7 @@ func main() {
 	_, err := os.Stat(json_location) // Check if json exists
 	if err != nil {
 		defaultConfig := tools.TempletJSON()
-		saveJson(defaultConfig, defaultConfig.Num)
+		tools.SaveJson(defaultConfig, defaultConfig.Num)
 		fmt.Printf("%v created in working directory\nPlease fill in the %v with the \n\tURLs to Download\n\tCookies\n\tUser-Agent\n", json_location, json_location)
 		return
 	}

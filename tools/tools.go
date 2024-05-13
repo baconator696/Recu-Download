@@ -132,8 +132,42 @@ func formatBytesPerSecond(num float64) string {
 	return fmt.Sprintf("%.1f %s", num, unit)
 }
 
+// Gets Playlist
+func GetPlaylist(url string, header map[string]string) ([]byte, string) {
+	data, filename, status := recurbateParser(url, header)
+	switch status {
+	case "cloudflare":
+		fmt.Printf("Cloudflare Blocked: Failed on url: %v\n", url)
+	case "cookie":
+		fmt.Printf("Please Log in: Failed on url: %v\n", url)
+	case "wait":
+		fmt.Printf("Daily View Used: Failed on url: %v\n", url)
+	case "panic":
+		fmt.Printf("Panic: Failed on url: %v\n", url)
+	case "done":
+		return data, filename
+	}
+	return nil, ""
+}
+
+// Saves video to working directory
+func GetVideo(playlist []byte, filename, url string, config Templet) error {
+	var fail int
+	fail = parsePlaylist(playlist, filename, config.Header, config.Num, config.Duration, fail)
+	if fail == 0 {
+		fmt.Printf("Completed: %v:%v\n", filename, url)
+		return nil
+	}
+	fmt.Printf("Download Failed at line: %v\n", fail)
+	err := SaveJson(config, fail*-1)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return fmt.Errorf("%d", fail)
+}
+
 // Muxes the transport streams and saves it to a file
-func MuxPlaylist(indexdata []byte, filename string, header map[string]string, num int, duration []float64, restart int) int {
+func parsePlaylist(playlist []byte, filename string, header map[string]string, num int, duration []float64, restart int) int {
 	var data []byte
 	var err error
 	var file *os.File
@@ -146,7 +180,7 @@ func MuxPlaylist(indexdata []byte, filename string, header map[string]string, nu
 	var retry int
 	var start time.Time
 	var getavgdur float64
-	indexlist := strings.Split(string(indexdata), "\n")
+	indexlist := strings.Split(string(playlist), "\n")
 	length := len(indexlist)
 	if num == 0 || num > length/2 {
 		num = 1
@@ -247,7 +281,7 @@ func MuxPlaylist(indexdata []byte, filename string, header map[string]string, nu
 }
 
 // Takes recurbate video URL and returns playlist raw data and returns file name {indexdata, filename, "done"}
-func RecurbateParser(url string, header map[string]string) ([]byte, string, string) {
+func recurbateParser(url string, header map[string]string) ([]byte, string, string) {
 	downloadLoop := func(url string, timeout int, header map[string]string) (data []byte, err error) {
 		retry := 0
 		for {
@@ -439,7 +473,7 @@ func CheckUpdate(currentTag string) (err error) {
 			case 1:
 				fmt.Printf("New Minor Release Available: %s\n", tag)
 			case 2:
-				if latest % 2 == 0 {
+				if latest%2 == 0 {
 					fmt.Printf("New Bug Fix Available: %s\n", tag)
 				} else {
 					fmt.Printf("New Hotfix Available: %s\n", tag)
@@ -450,4 +484,27 @@ func CheckUpdate(currentTag string) (err error) {
 		}
 	}
 	return nil
+}
+
+// Saves Json
+func SaveJson(config Templet, num int) (err error) {
+	jsonData, err := json.MarshalIndent(Templet{
+		Urls:     config.Urls,
+		Header:   config.Header,
+		Num:      num,
+		Duration: config.Duration,
+	}, "", "\t")
+	if err != nil {
+		return fmt.Errorf("error: Parsing Json%v", err)
+	}
+	jsonLocation := "config.json"
+	if Argparser(1) != "" {
+		jsonLocation = Argparser(1)
+	}
+	err = os.WriteFile(jsonLocation, jsonData, 0666)
+	if err != nil {
+		err = fmt.Errorf("error: Saving Json:%v", err)
+		return
+	}
+	return
 }

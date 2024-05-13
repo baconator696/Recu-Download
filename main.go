@@ -75,12 +75,13 @@ func downloadPlaylist(config tools.Templet) {
 	}
 }
 func downloadConent(config tools.Templet) {
-	data, err := os.ReadFile(tools.Argparser(3))
+	playlistPath := tools.Argparser(3)
+	data, err := os.ReadFile(playlistPath)
 	if err != nil {
 		fmt.Printf("Failed to read playlist: %v\n", err)
 		return
 	}
-	filename := tools.Argparser(3)
+	filename := playlistPath
 	if strings.Contains(filename, string(os.PathSeparator)) {
 		tempSplit := strings.Split(filename, string(os.PathSeparator))
 		filename = tempSplit[len(tempSplit)-1]

@@ -49,6 +49,7 @@ func serialService(config tools.Templet) {
 		if data == nil {
 			continue
 		}
+		fmt.Printf("%d/%d:\n",i+1,len(playlists))
 		if tools.GetVideo(data, filenames[i], config.Urls[i], config) == 0 {
 			continue
 		}

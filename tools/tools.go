@@ -232,7 +232,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 				}
 				retry++
 				if err == nil {
-					err = fmt.Errorf("status Code: %d, %s", status, string(data))
+					err = fmt.Errorf("status Code: %d, %s", status, ANSIColor(string(data), 2))
 				}
 				if retry > 5 {
 					fmt.Printf("\nError: %v\n", err)
@@ -245,7 +245,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 			if !writen {
 				err = os.WriteFile(filename+".ts", data, 0666)
 				if err != nil {
-					fmt.Println("DEBUG:215:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
+					fmt.Println("DEBUG:248:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
 				}
 				file, _ = os.OpenFile(filename+".ts", os.O_APPEND|os.O_WRONLY, 0666)
 				defer file.Close()
@@ -253,7 +253,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 			} else {
 				_, err = file.Write(data)
 				if err != nil {
-					fmt.Println("DEBUG:223:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
+					fmt.Println("DEBUG:256:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
 				}
 			}
 			avgsize.add(float64(len(data)))
@@ -262,7 +262,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 			speed = avgsize.average() / (getavgdur * 60)
 			eta = getavgdur * ((float64(length) * duration[1] / 100) - float64(step)) / 2
 			percent = float64(step) / float64(length) * 100
-			fmt.Printf("\n\033[A\033[2KDownloading: \033[33m%.1f%%\033[0m\tRemaining: %s\t%s", percent, formatMinutes(eta), formatBytesPerSecond(speed))
+			fmt.Printf("\n\033[A\033[2KDownloading: %s\tRemaining: %s\t%s", ANSIColor(fmt.Sprintf("%.1f%%", percent), 33), formatMinutes(eta), formatBytesPerSecond(speed))
 			if num > 10 {
 				step += int(math.Ceil(float64(length) / float64(num)))
 			} else {
@@ -292,7 +292,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 			fmt.Printf("Failed Retrying...\033[18D")
 			if retry > 5 {
 				if err == nil {
-					err = fmt.Errorf("status code: %d, %s", status, string(data))
+					err = fmt.Errorf("status code: %d, %s", status, ANSIColor(string(data), 2))
 				}
 				return
 			}
@@ -302,7 +302,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		}
 		return
 	}
-	fmt.Printf("\rDownloading HTML")
+	fmt.Printf("\rDownloading HTML: ")
 	htmldata, err := downloadLoop(url, 10, header)
 	if err != nil {
 		fmt.Println(err)
@@ -316,7 +316,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 	}
 	id := strings.Split(url, "/")[4]
 	url = "https://recu.me/api/video/" + id + "?token=" + token
-	fmt.Printf("\rGetting Link to Playlist")
+	fmt.Printf("\rGetting Link to Playlist: ")
 	apidata, err := downloadLoop(url, 10, header)
 	if err != nil {
 		fmt.Println(err)
@@ -337,7 +337,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		return nil, "", "panic"
 	}
 	url = strings.ReplaceAll(url, "amp;", "")
-	fmt.Printf("\rDownloading Playlist")
+	fmt.Printf("\rDownloading Playlist: ")
 	indexdata, err := downloadLoop(url, 10, header)
 	if err != nil {
 		fmt.Println(err)
@@ -408,6 +408,43 @@ func shortenString(str any, ln int) string {
 	default:
 		return fmt.Sprintf("Type:%v", i)
 	}
+}
+
+// ANSI Color
+func ANSIColor(str any, mod int, color ...int) (final string) {
+	var x, r, g, b int
+	var rgb bool
+	if len(color) == 1 {
+		x = color[0]
+	} else if len(color) == 3 {
+		rgb = true
+		r = color[0]
+		g = color[1]
+		b = color[2]
+	}
+	var res int
+	switch {
+	case mod == 1:
+		res = 22
+	case mod == 21:
+		res = 24
+	case mod >= 2 && mod <= 9:
+		res = mod + 20
+	case (mod >= 30 && mod <= 38) || (mod >= 90 && mod <= 97):
+		res = 39
+	case (mod >= 40 && mod <= 48) || (mod >= 100 && mod <= 107):
+		res = 49
+	}
+	if mod == 38 || mod == 48 {
+		if rgb {
+			final = fmt.Sprintf("\033[%d;2;%d;%d;%dm%s\033[%dm", mod, r, g, b, str, res)
+		} else {
+			final = fmt.Sprintf("\033[%d;5;%dm%s\033[%dm", mod, x, str, res)
+		}
+	} else {
+		final = fmt.Sprintf("\033[%dm%s\033[%dm", mod, str, res)
+	}
+	return
 }
 
 // Returns default templet

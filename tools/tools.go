@@ -490,7 +490,7 @@ func formatedHeader(refHeader map[string]string, videoUrl string, i int) (header
 		header["Sec-Ch-Ua-Platform-Version"] = `"15.0.0"`
 		header["Sec-Fetch-Dest"] = "document"
 		header["Sec-Fetch-Mode"] = "navigate"
-		header["Sec-Fetch-Site"] = "same-origin"
+		header["Sec-Fetch-Site"] = "none"
 		header["Sec-Fetch-User"] = "?1"
 		header["Upgrade-Insecure-Requests"] = "1"
 	case 2: // playlist link

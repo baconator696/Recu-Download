@@ -166,7 +166,8 @@ func GetVideo(playlist []byte, filename, url string, config Templet) (fail int) 
 }
 
 // Muxes the transport streams and saves it to a file
-func muxPlaylist(playlist []byte, filename string, header map[string]string, num int, duration []float64, restart int) int {
+func muxPlaylist(playlist []byte, filename string, refHeader map[string]string, num int, duration []float64, restart int) int {
+	header := formatedHeader(refHeader,"",0)
 	var data []byte
 	var err error
 	var file *os.File
@@ -303,7 +304,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		return
 	}
 	fmt.Printf("\rDownloading HTML: ")
-	htmldata, err := downloadLoop(url, 10, header)
+	htmldata, err := downloadLoop(url, 10, formatedHeader(header, "", 1))
 	if err != nil {
 		fmt.Println(err)
 		return nil, "", "cloudflare"
@@ -317,7 +318,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 	id := strings.Split(url, "/")[4]
 	url = "https://recu.me/api/video/" + id + "?token=" + token
 	fmt.Printf("\rGetting Link to Playlist: ")
-	apidata, err := downloadLoop(url, 10, header)
+	apidata, err := downloadLoop(url, 10, formatedHeader(header, url, 2))
 	if err != nil {
 		fmt.Println(err)
 		return nil, "", "panic"
@@ -338,7 +339,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 	}
 	url = strings.ReplaceAll(url, "amp;", "")
 	fmt.Printf("\rDownloading Playlist: ")
-	indexdata, err := downloadLoop(url, 10, header)
+	indexdata, err := downloadLoop(url, 10, formatedHeader(header,"",0))
 	if err != nil {
 		fmt.Println(err)
 		return nil, "", "panic"
@@ -455,9 +456,10 @@ func TempletJSON() Templet {
 		"Accept-Language":    "en-US,en;q=0.9",
 		"Cookie":             "",
 		"Origin":             "https://recu.me",
-		"Sec-Ch-Ua":          "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\"",
+		"Priority":           "u=1, i",
+		"Sec-Ch-Ua":          `"Chromium";v="124", "Microsoft Edge";v="124", "Not-A.Brand";v="99"`,
 		"Sec-Ch-Ua-Mobile":   "?0",
-		"Sec-Ch-Ua-Platform": "\"Windows\"",
+		"Sec-Ch-Ua-Platform": `"Windows"`,
 		"Sec-Fetch-Dest":     "empty",
 		"Sec-Fetch-Mode":     "cors",
 		"Sec-Fetch-Site":     "cross-site",
@@ -467,6 +469,44 @@ func TempletJSON() Templet {
 	jsonTemplet.Urls = []string{""}
 	jsonTemplet.Duration = []float64{0, 100}
 	return jsonTemplet
+}
+
+// Return Formated Headers, url needed only if i is 2
+func formatedHeader(refHeader map[string]string, videoUrl string, i int) (header map[string]string) {
+	header = make(map[string]string)
+	for k, v := range refHeader {
+		header[k] = v
+	}
+	switch i {
+	case 1: // html
+		header["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+		header["Cache-Control"] = "max-age=0"
+		header["Referer"] = "https://recu.me/"
+		header["Sec-Ch-Ua-Arch"] = `"x86"`
+		header["Sec-Ch-Ua-Bitness"] = `"64"`
+		header["Sec-Ch-Ua-Full-Version"] = `"124.0.2478.97"`
+		header["Sec-Ch-Ua-Full-Version-List"] = `"Chromium";v="124.0.6367.201", "Microsoft Edge";v="124.0.2478.97", "Not-A.Brand";v="99.0.0.0"`
+		header["Sec-Ch-Ua-Model"] = `""`
+		header["Sec-Ch-Ua-Platform-Version"] = `"15.0.0"`
+		header["Sec-Fetch-Dest"] = "document"
+		header["Sec-Fetch-Mode"] = "navigate"
+		header["Sec-Fetch-Site"] = "same-origin"
+		header["Sec-Fetch-User"] = "?1"
+		header["Upgrade-Insecure-Requests"] = "1"
+	case 2: // playlist link
+		header["Referer"] = videoUrl
+		header["Sec-Ch-Ua-Arch"] = `"x86"`
+		header["Sec-Ch-Ua-Bitness"] = `"64"`
+		header["Sec-Ch-Ua-Full-Version"] = `"124.0.2478.97"`
+		header["Sec-Ch-Ua-Full-Version-List"] = `"Chromium";v="124.0.6367.201", "Microsoft Edge";v="124.0.2478.97", "Not-A.Brand";v="99.0.0.0"`
+		header["Sec-Ch-Ua-Model"] = `""`
+		header["Sec-Ch-Ua-Platform-Version"] = `"15.0.0"`
+		header["Sec-Fetch-Site"] = "same-origin"
+		header["X-Requested-With"] = "XMLHttpRequest"
+	default: // playlist
+		delete(header, "Cookie")
+	}
+	return
 }
 
 // Check for update

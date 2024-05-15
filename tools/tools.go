@@ -138,13 +138,19 @@ func GetPlaylist(urlAny any, header map[string]string) ([]byte, string) {
 	switch t := urlAny.(type) {
 	case string:
 		url = t
-	case []string:
+	case []any:
 		if len(t) >= 1 {
-			url = t[0]
+			var ok bool
+			url, ok = t[0].(string)
+			if !ok {
+				fmt.Println("url is in wrong format")
+				return nil, ""
+			}
 		} else {
 			return nil, ""
 		}
 	default:
+		fmt.Println("url is in wrong format")
 		return nil, ""
 	}
 	data, filename, status := recurbateParser(url, header)
@@ -164,10 +170,15 @@ func GetPlaylist(urlAny any, header map[string]string) ([]byte, string) {
 }
 
 // convert timestamps into percent
-func percentPrase(times []string) []float64 {
+func percentPrase(times []any) []float64 {
 	var start, end float64
 	var secs [3]int
-	for i, v := range times {
+	for i, w := range times {
+		v, ok := w.(string)
+		if !ok {
+			fmt.Println("time is in wrong format")
+			return nil
+		}
 		time := strings.Split(v, ":")
 		cons := 3600
 		for _, v := range time {
@@ -178,7 +189,7 @@ func percentPrase(times []string) []float64 {
 	}
 	start = float64(secs[0]) / float64(secs[2]) * 100
 	end = float64(secs[1]) / float64(secs[2]) * 100
-	return []float64{start,end}
+	return []float64{start, end}
 }
 
 // Saves video to working directory
@@ -188,17 +199,14 @@ func GetVideo(playlist []byte, filename string, urlAny any, config Templet) (fai
 	switch t := urlAny.(type) {
 	case string:
 		url = t
-	case []string:
-		if len(t) >= 1 {
-			url = t[0]
-			if len(t) == 4 {
-				duration = percentPrase(t[1:])
+	case []any:
+		url = t[0].(string)
+		if len(t) == 4 {
+			duration = percentPrase(t[1:])
+			if duration == nil {
+				duration = config.Duration
 			}
-		} else {
-			return 1
 		}
-	default:
-		return 1
 	}
 	fail = muxPlaylist(playlist, filename, config.Header, config.Num, duration, fail)
 	if fail == 0 {

@@ -208,6 +208,9 @@ func GetVideo(playlist []byte, filename string, urlAny any, config Templet) (fai
 			}
 		}
 	}
+	if duration == nil {
+		duration = []float64{0, 100}
+	}
 	fail = muxPlaylist(playlist, filename, config.Header, config.Num, duration, fail)
 	if fail == 0 {
 		fmt.Printf("Completed: %v:%v\n", filename, url)
@@ -523,7 +526,6 @@ func TempletJSON() Templet {
 	}
 	jsonTemplet.Num = 1
 	jsonTemplet.Urls = []any{""}
-	jsonTemplet.Duration = []float64{0, 100}
 	return jsonTemplet
 }
 
@@ -620,12 +622,25 @@ func CheckUpdate(currentTag string) (err error) {
 
 // Saves Json
 func SaveJson(config Templet, num int) (err error) {
-	jsonData, err := json.MarshalIndent(Templet{
-		Urls:     config.Urls,
-		Header:   config.Header,
-		Num:      num,
-		Duration: config.Duration,
-	}, "", "\t")
+	var jsonData []byte
+	if config.Duration == nil {
+		jsonData, err = json.MarshalIndent(struct {
+			Urls   []any             `json:"urls"`
+			Header map[string]string `json:"header"`
+			Num    int               `json:"num"`
+		}{
+			Urls:   config.Urls,
+			Header: config.Header,
+			Num:    num,
+		}, "", "\t")
+	} else {
+		jsonData, err = json.MarshalIndent(Templet{
+			Urls:     config.Urls,
+			Header:   config.Header,
+			Num:      num,
+			Duration: config.Duration,
+		}, "", "\t")
+	}
 	if err != nil {
 		return fmt.Errorf("error: Parsing Json%v", err)
 	}

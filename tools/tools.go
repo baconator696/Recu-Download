@@ -18,10 +18,10 @@ var (
 
 // Defines the JSON used
 type Templet struct {
-	Urls     []string          `json:"urls"`
+	Urls     []any             `json:"urls"`
 	Header   map[string]string `json:"header"`
 	Num      int               `json:"num"`
-	Duration []float64         `json:"duration"`
+	Duration []float64         `json:"duration"` // Deprecated
 }
 
 // Defines the Average Buffer
@@ -133,7 +133,20 @@ func formatBytesPerSecond(num float64) string {
 }
 
 // Gets Playlist
-func GetPlaylist(url string, header map[string]string) ([]byte, string) {
+func GetPlaylist(urlAny any, header map[string]string) ([]byte, string) {
+	var url string
+	switch t := urlAny.(type) {
+	case string:
+		url = t
+	case []string:
+		if len(t) >= 1 {
+			url = t[0]
+		} else {
+			return nil, ""
+		}
+	default:
+		return nil, ""
+	}
 	data, filename, status := recurbateParser(url, header)
 	switch status {
 	case "cloudflare":
@@ -150,9 +163,44 @@ func GetPlaylist(url string, header map[string]string) ([]byte, string) {
 	return nil, ""
 }
 
+// convert timestamps into percent
+func percentPrase(times []string) []float64 {
+	var start, end float64
+	var secs [3]int
+	for i, v := range times {
+		time := strings.Split(v, ":")
+		cons := 3600
+		for _, v := range time {
+			w, _ := strconv.Atoi(v)
+			secs[i] += w * cons
+			cons /= 60
+		}
+	}
+	start = float64(secs[0]) / float64(secs[2]) * 100
+	end = float64(secs[1]) / float64(secs[2]) * 100
+	return []float64{start,end}
+}
+
 // Saves video to working directory
-func GetVideo(playlist []byte, filename, url string, config Templet) (fail int) {
-	fail = muxPlaylist(playlist, filename, config.Header, config.Num, config.Duration, fail)
+func GetVideo(playlist []byte, filename string, urlAny any, config Templet) (fail int) {
+	var url string
+	var duration []float64 = config.Duration
+	switch t := urlAny.(type) {
+	case string:
+		url = t
+	case []string:
+		if len(t) >= 1 {
+			url = t[0]
+			if len(t) == 4 {
+				duration = percentPrase(t[1:])
+			}
+		} else {
+			return 1
+		}
+	default:
+		return 1
+	}
+	fail = muxPlaylist(playlist, filename, config.Header, config.Num, duration, fail)
 	if fail == 0 {
 		fmt.Printf("Completed: %v:%v\n", filename, url)
 		return
@@ -167,7 +215,7 @@ func GetVideo(playlist []byte, filename, url string, config Templet) (fail int) 
 
 // Muxes the transport streams and saves it to a file
 func muxPlaylist(playlist []byte, filename string, refHeader map[string]string, num int, duration []float64, restart int) int {
-	header := formatedHeader(refHeader,"",0)
+	header := formatedHeader(refHeader, "", 0)
 	var data []byte
 	var err error
 	var file *os.File
@@ -339,7 +387,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 	}
 	url = strings.ReplaceAll(url, "amp;", "")
 	fmt.Printf("\rDownloading Playlist: ")
-	indexdata, err := downloadLoop(url, 10, formatedHeader(header,"",0))
+	indexdata, err := downloadLoop(url, 10, formatedHeader(header, "", 0))
 	if err != nil {
 		fmt.Println(err)
 		return nil, "", "panic"
@@ -466,7 +514,7 @@ func TempletJSON() Templet {
 		"User-Agent":         "",
 	}
 	jsonTemplet.Num = 1
-	jsonTemplet.Urls = []string{""}
+	jsonTemplet.Urls = []any{""}
 	jsonTemplet.Duration = []float64{0, 100}
 	return jsonTemplet
 }

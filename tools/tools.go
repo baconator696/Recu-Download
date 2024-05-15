@@ -180,11 +180,11 @@ func percentPrase(times []any) []float64 {
 			return nil
 		}
 		time := strings.Split(v, ":")
-		cons := 3600
-		for _, v := range time {
-			w, _ := strconv.Atoi(v)
+		cons := 1
+		for j := len(time)-1; j >= 0; j-- {
+			w, _ := strconv.Atoi(time[j])
 			secs[i] += w * cons
-			cons /= 60
+			cons *= 60
 		}
 	}
 	start = float64(secs[0]) / float64(secs[2]) * 100

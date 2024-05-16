@@ -27,7 +27,7 @@ func parallelService(config tools.Templet) {
 		wg.Add(1)
 		go func(data []byte, i int) {
 			defer wg.Done()
-			if tools.GetVideo(data, filenames[i], config.Urls[i], config) == 0 {
+			if tools.GetVideo(data, filenames[i], i, &config) == 0 {
 				return
 			}
 			err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
@@ -50,7 +50,7 @@ func serialService(config tools.Templet) {
 			continue
 		}
 		fmt.Printf("%d/%d:\n",i+1,len(playlists))
-		if tools.GetVideo(data, filenames[i], config.Urls[i], config) == 0 {
+		if tools.GetVideo(data, filenames[i], i, &config) == 0 {
 			continue
 		}
 		err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
@@ -88,7 +88,7 @@ func downloadConent(config tools.Templet) {
 		filename = tempSplit[len(tempSplit)-1]
 	}
 	filename = strings.ReplaceAll(filename, ".m3u8", "")
-	tools.GetVideo(data, filename, "", config)
+	tools.GetVideo(data, filename, 0, &config)
 }
 func init() {
 	go func() {
@@ -123,7 +123,7 @@ func main() {
 	_, err := os.Stat(json_location) // Check if json exists
 	if err != nil {
 		defaultConfig := tools.TempletJSON()
-		tools.SaveJson(defaultConfig, defaultConfig.Num)
+		tools.SaveJson(defaultConfig)
 		fmt.Printf("%v created in working directory\nPlease fill in the %v with the \n\tURLs to Download\n\tCookies\n\tUser-Agent\n", json_location, json_location)
 		return
 	}

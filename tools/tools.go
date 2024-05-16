@@ -20,7 +20,7 @@ var (
 type Templet struct {
 	Urls     []any             `json:"urls"`
 	Header   map[string]string `json:"header"`
-	Num      int               `json:"num"`
+	Num      int               `json:"num"`      // Deprecated
 	Duration []float64         `json:"duration"` // Deprecated
 }
 
@@ -134,24 +134,24 @@ func formatBytesPerSecond(num float64) string {
 
 // Gets Playlist
 func GetPlaylist(urlAny any, header map[string]string) ([]byte, string) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			fmt.Printf("urls are in wrong format, error: %v\n", r)
+		}
+	}()
 	var url string
 	switch t := urlAny.(type) {
 	case string:
 		url = t
 	case []any:
 		if len(t) >= 1 {
-			var ok bool
-			url, ok = t[0].(string)
-			if !ok {
-				fmt.Println("url is in wrong format")
-				return nil, ""
-			}
+			url = t[0].(string)
 		} else {
-			return nil, ""
+			panic("no url")
 		}
 	default:
-		fmt.Println("url is in wrong format")
-		return nil, ""
+		panic("url is incorrect type")
 	}
 	data, filename, status := recurbateParser(url, header)
 	switch status {
@@ -181,7 +181,7 @@ func percentPrase(times []any) []float64 {
 		}
 		time := strings.Split(v, ":")
 		cons := 1
-		for j := len(time)-1; j >= 0; j-- {
+		for j := len(time) - 1; j >= 0; j-- {
 			w, _ := strconv.Atoi(time[j])
 			secs[i] += w * cons
 			cons *= 60
@@ -193,31 +193,76 @@ func percentPrase(times []any) []float64 {
 }
 
 // Saves video to working directory
-func GetVideo(playlist []byte, filename string, urlAny any, config Templet) (fail int) {
+func GetVideo(playlist []byte, filename string, index int, config *Templet) (fail int) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			fmt.Printf("urls are in wrong format, error: %v\n", r)
+			fail = 1
+		}
+	}()
 	var url string
 	var duration []float64 = config.Duration
-	switch t := urlAny.(type) {
+	var num int = config.Num
+	switch t := config.Urls[index].(type) {
 	case string:
 		url = t
 	case []any:
-		url = t[0].(string)
-		if len(t) == 4 {
+		switch len(t) {
+		case 1:
+			url = t[0].(string)
+		case 2:
+			url = t[0].(string)
+			num = int(t[1].(float64))
+		case 4:
+			url = t[0].(string)
 			duration = percentPrase(t[1:])
 			if duration == nil {
 				duration = config.Duration
 			}
+		case 5:
+			url = t[0].(string)
+			duration = percentPrase(t[1:3])
+			if duration == nil {
+				duration = config.Duration
+			}
+			num = int(t[4].(float64))
+		default:
+			panic("incorrect length of url array")
 		}
+	default:
+		panic("url is incorrect type")
 	}
 	if duration == nil {
 		duration = []float64{0, 100}
 	}
-	fail = muxPlaylist(playlist, filename, config.Header, config.Num, duration, fail)
+	num = num * -1
+	fail = muxPlaylist(playlist, filename, config.Header, num, duration)
 	if fail == 0 {
 		fmt.Printf("Completed: %v:%v\n", filename, url)
 		return
 	}
 	fmt.Printf("Download Failed at line: %v\n", fail)
-	err := SaveJson(config, fail*-1)
+	switch t := config.Urls[index].(type) {
+	case string:
+		config.Urls[index] = []any{t, fail}
+	case []any:
+		switch len(t) {
+		case 1:
+			t = append(t, fail)
+			config.Urls[index] = t
+		case 2:
+			t[1] = fail
+			config.Urls[index] = t
+		case 4:
+			t = append(t, fail)
+			config.Urls[index] = t
+		case 5:
+			t[4] = fail
+			config.Urls[index] = t
+		}
+	}
+	err := SaveJson(*config)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -225,20 +270,15 @@ func GetVideo(playlist []byte, filename string, urlAny any, config Templet) (fai
 }
 
 // Muxes the transport streams and saves it to a file
-func muxPlaylist(playlist []byte, filename string, refHeader map[string]string, num int, duration []float64, restart int) int {
+func muxPlaylist(playlist []byte, filename string, refHeader map[string]string, num int, duration []float64) int {
 	header := formatedHeader(refHeader, "", 0)
 	var data []byte
 	var err error
 	var file *os.File
-	var avgdur AvgBuffer
-	var dur float64
-	var eta float64
-	var percent float64
-	var speed float64
-	var avgsize AvgBuffer
-	var retry int
+	var avgdur, avgsize AvgBuffer
+	var getavgdur, dur, eta, percent, speed float64
+	var retry, restart int
 	var start time.Time
-	var getavgdur float64
 	indexlist := strings.Split(string(playlist), "\n")
 	length := len(indexlist)
 	if num == 0 || num > length/2 {
@@ -524,7 +564,6 @@ func TempletJSON() Templet {
 		"Sec-Fetch-Site":     "cross-site",
 		"User-Agent":         "",
 	}
-	jsonTemplet.Num = 1
 	jsonTemplet.Urls = []any{""}
 	return jsonTemplet
 }
@@ -621,23 +660,21 @@ func CheckUpdate(currentTag string) (err error) {
 }
 
 // Saves Json
-func SaveJson(config Templet, num int) (err error) {
+func SaveJson(config Templet) (err error) {
 	var jsonData []byte
 	if config.Duration == nil {
 		jsonData, err = json.MarshalIndent(struct {
 			Urls   []any             `json:"urls"`
 			Header map[string]string `json:"header"`
-			Num    int               `json:"num"`
 		}{
 			Urls:   config.Urls,
 			Header: config.Header,
-			Num:    num,
 		}, "", "\t")
 	} else {
 		jsonData, err = json.MarshalIndent(Templet{
 			Urls:     config.Urls,
 			Header:   config.Header,
-			Num:      num,
+			Num:      1,
 			Duration: config.Duration,
 		}, "", "\t")
 	}

@@ -219,7 +219,7 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 			duration = percentPrase(t[1:])
 		case 5:
 			url = t[0].(string)
-			duration = percentPrase(t[1:3])
+			duration = percentPrase(t[1:4])
 			num = int(t[4].(float64))
 		default:
 			panic("incorrect length of url array")

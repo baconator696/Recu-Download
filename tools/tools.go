@@ -544,17 +544,7 @@ func ANSIColor(str any, mod int, color ...int) (final string) {
 func TempletJSON() Templet {
 	var jsonTemplet Templet
 	jsonTemplet.Header = map[string]string{
-		"Accept":             "*/*",
-		"Accept-Language":    "en-US,en;q=0.9",
 		"Cookie":             "",
-		"Origin":             "https://recu.me",
-		"Priority":           "u=1, i",
-		"Sec-Ch-Ua":          `"Chromium";v="124", "Microsoft Edge";v="124", "Not-A.Brand";v="99"`,
-		"Sec-Ch-Ua-Mobile":   "?0",
-		"Sec-Ch-Ua-Platform": `"Windows"`,
-		"Sec-Fetch-Dest":     "empty",
-		"Sec-Fetch-Mode":     "cors",
-		"Sec-Fetch-Site":     "cross-site",
 		"User-Agent":         "",
 	}
 	jsonTemplet.Urls = []any{""}
@@ -567,6 +557,15 @@ func formatedHeader(refHeader map[string]string, videoUrl string, i int) (header
 	for k, v := range refHeader {
 		header[k] = v
 	}
+	header["Accept"] = "*/*"
+	header["Accept-Language"] = "en-US,en;q=0.9"
+	header["Origin"] = "https://recu.me"
+	header["Priority"] = "u=1, i"
+	header["Sec-Ch-Ua"] = `"Chromium";v="124", "Microsoft Edge";v="124", "Not-A.Brand";v="99"`
+	header["Sec-Ch-Ua-Mobile"] = "?0"
+	header["Sec-Ch-Ua-Platform"] = `"Windows"`
+	header["Sec-Fetch-Dest"] = "empty"
+	header["Sec-Fetch-Mode"] = "cors"
 	switch i {
 	case 1: // html
 		header["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
@@ -594,6 +593,7 @@ func formatedHeader(refHeader map[string]string, videoUrl string, i int) (header
 		header["Sec-Fetch-Site"] = "same-origin"
 		header["X-Requested-With"] = "XMLHttpRequest"
 	default: // playlist
+		header["Sec-Fetch-Site"] = "cross-site"
 		delete(header, "Cookie")
 	}
 	return
@@ -637,7 +637,7 @@ func CheckUpdate(currentTag string) (err error) {
 		}
 		if new > current {
 			fmt.Printf("New Update Available: v%s\n", newTag)
-			fmt.Printf("%s\n%s\n", resp.(map[string]any)["html_url"].(string),ANSIColor(resp.(map[string]any)["body"].(string),2))
+			fmt.Printf("%s\n%s\n", resp.(map[string]any)["html_url"].(string), ANSIColor(resp.(map[string]any)["body"].(string), 2))
 			return nil
 		}
 	}

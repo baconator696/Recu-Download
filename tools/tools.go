@@ -203,7 +203,7 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 	}()
 	var url string
 	var duration []float64 = config.Duration
-	var num int = config.Num
+	var num int = config.Num * -1
 	switch t := config.Urls[index].(type) {
 	case string:
 		url = t
@@ -217,15 +217,9 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 		case 4:
 			url = t[0].(string)
 			duration = percentPrase(t[1:])
-			if duration == nil {
-				duration = config.Duration
-			}
 		case 5:
 			url = t[0].(string)
 			duration = percentPrase(t[1:3])
-			if duration == nil {
-				duration = config.Duration
-			}
 			num = int(t[4].(float64))
 		default:
 			panic("incorrect length of url array")
@@ -662,22 +656,13 @@ func CheckUpdate(currentTag string) (err error) {
 // Saves Json
 func SaveJson(config Templet) (err error) {
 	var jsonData []byte
-	if config.Duration == nil {
-		jsonData, err = json.MarshalIndent(struct {
-			Urls   []any             `json:"urls"`
-			Header map[string]string `json:"header"`
-		}{
-			Urls:   config.Urls,
-			Header: config.Header,
-		}, "", "\t")
-	} else {
-		jsonData, err = json.MarshalIndent(Templet{
-			Urls:     config.Urls,
-			Header:   config.Header,
-			Num:      1,
-			Duration: config.Duration,
-		}, "", "\t")
-	}
+	jsonData, err = json.MarshalIndent(struct {
+		Urls   []any             `json:"urls"`
+		Header map[string]string `json:"header"`
+	}{
+		Urls:   config.Urls,
+		Header: config.Header,
+	}, "", "\t")
 	if err != nil {
 		return fmt.Errorf("error: Parsing Json%v", err)
 	}

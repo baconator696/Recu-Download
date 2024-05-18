@@ -625,31 +625,32 @@ func CheckUpdate(currentTag string) (err error) {
 	if err != nil {
 		return
 	}
-	tag := resp.(map[string]any)["tag_name"].(string)
-	tag = strings.ReplaceAll(tag, "v", "")
-	tags := strings.Split(tag, ".")
+	newTag := resp.(map[string]any)["tag_name"].(string)
+	newTag = strings.ReplaceAll(newTag, "v", "")
+	newNums := strings.Split(newTag, ".")
 	currentTag = strings.ReplaceAll(currentTag, "v", "")
-	currentTags := strings.Split(currentTag, ".")
-	for i, v := range tags {
-		current, err := strconv.Atoi(currentTags[i])
+	currentNums := strings.Split(currentTag, ".")
+	for i, v := range newNums {
+		current, err := strconv.Atoi(currentNums[i])
 		if err != nil {
 			continue
 		}
-		latest, err := strconv.Atoi(v)
+		new, err := strconv.Atoi(v)
 		if err != nil {
 			continue
 		}
-		if latest > current {
+		fmt.Printf("new: %d | current: %d", new,current)
+		if new > current {
 			switch i {
 			case 0:
-				fmt.Printf("New Major Release Available: %s\n", tag)
+				fmt.Printf("New Major Release Available: v%s\n", newTag)
 			case 1:
-				fmt.Printf("New Minor Release Available: %s\n", tag)
+				fmt.Printf("New Minor Release Available: v%s\n", newTag)
 			case 2:
-				if latest%2 == 0 {
-					fmt.Printf("New Bug Fix Available: %s\n", tag)
+				if new%2 == 0 {
+					fmt.Printf("New Bug Fix Available: v%s\n", newTag)
 				} else {
-					fmt.Printf("New Hotfix Available: %s\n", tag)
+					fmt.Printf("New Hotfix Available: v%s\n", newTag)
 				}
 			}
 			fmt.Printf("https://github.com/baconator696/Recu-Download/releases/\n\n")

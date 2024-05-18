@@ -639,7 +639,6 @@ func CheckUpdate(currentTag string) (err error) {
 		if err != nil {
 			continue
 		}
-		fmt.Printf("new: %d | current: %d", new,current)
 		if new > current {
 			switch i {
 			case 0:

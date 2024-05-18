@@ -636,7 +636,8 @@ func CheckUpdate(currentTag string) (err error) {
 			continue
 		}
 		if new > current {
-			fmt.Printf("New Update Available\n%s\n%s\n", resp.(map[string]any)["html_url"].(string),ANSIColor(resp.(map[string]any)["body"].(string),2))
+			fmt.Printf("New Update Available: v%s\n", newTag)
+			fmt.Printf("%s\n%s\n", resp.(map[string]any)["html_url"].(string),ANSIColor(resp.(map[string]any)["body"].(string),2))
 			return nil
 		}
 	}

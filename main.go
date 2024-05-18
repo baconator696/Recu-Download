@@ -90,6 +90,21 @@ func downloadConent(config tools.Templet) {
 	filename = strings.ReplaceAll(filename, ".m3u8", "")
 	tools.GetVideo(data, filename, 0, &config)
 }
+func readme() string {
+	return `Recurbate:
+If ran for the first time, json configuration will be generated
+	in the working directory
+Fill in the json's URL, Cookie and User-Agent to allow the
+	program to run
+
+Usage: recurbate <json location> playlist/series <playlist.m3u8>
+
+if "playlist" is used, only the .m3u8 playlist file will be
+	downloaded, specifiying the playlist location will
+	download the contents of the playlist
+if "series" is used, the program will download both the videos
+	in series`
+}
 func init() {
 	go func() {
 		inter := make(chan os.Signal, 1)
@@ -106,14 +121,7 @@ func main() {
 	fmt.Printf("Recu %v\n", tag)
 	tools.CheckUpdate(tag)
 	if tools.Argparser(1) == "--help" {
-		fmt.Println("Recurbate:")
-		fmt.Println("If ran for the first time, json configuration will be generated in the working directory")
-		fmt.Println("Fill in the json's URL, Cookie and User-Agent to allow the program to run")
-		fmt.Println("\nUsage: recurbate <json location> playlist/series <playlist.m3u8>")
-		fmt.Println("\nif \"playlist\" is used, only the .m3u8 playlist file will be downloaded,specifiying the playlist location will download the contents of the playlist")
-		fmt.Println("\nif \"series\" is used, the program will download both the playlists and videos in series, all the playlists will be downloaded first")
-		fmt.Println("\njson parameter definitions:\n\tDuration: start and stop percentage for the video download\n\tnum: helps you get a preview of a hidden video, you can put anything above 10, putting 20 will give 20 preview clips in the video. 3-10 will create much larger previews")
-		fmt.Println("\nif download fails and a playlist is saved, you can specifiy what line it failed at using the 'num' parameter using a negative number, this will allow the program to resume where it left off. Only use this if a partial file was downloaded")
+		fmt.Println(readme())
 		return
 	}
 	json_location := "config.json"

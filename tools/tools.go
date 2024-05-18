@@ -231,7 +231,7 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 		duration = []float64{0, 100}
 	}
 	num = num * -1
-	fail = muxPlaylist(playlist, filename, config.Header, num, duration)
+	fail = muxPlaylist(playlist, filename, formatedHeader(config.Header, "", 0), num, duration)
 	if fail == 0 {
 		fmt.Printf("Completed: %v:%v\n", filename, url)
 		return
@@ -264,8 +264,7 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 }
 
 // Muxes the transport streams and saves it to a file
-func muxPlaylist(playlist []byte, filename string, refHeader map[string]string, num int, duration []float64) int {
-	header := formatedHeader(refHeader, "", 0)
+func muxPlaylist(playlist []byte, filename string, header map[string]string, num int, duration []float64) int {
 	var data []byte
 	var err error
 	var file *os.File
@@ -619,6 +618,9 @@ func CheckUpdate(currentTag string) (err error) {
 	if err != nil {
 		return
 	}
+	if resp.(map[string]any)["prerelease"].(bool) {
+		return
+	}
 	newTag := resp.(map[string]any)["tag_name"].(string)
 	newTag = strings.ReplaceAll(newTag, "v", "")
 	newNums := strings.Split(newTag, ".")
@@ -634,19 +636,7 @@ func CheckUpdate(currentTag string) (err error) {
 			continue
 		}
 		if new > current {
-			switch i {
-			case 0:
-				fmt.Printf("New Major Release Available: v%s\n", newTag)
-			case 1:
-				fmt.Printf("New Minor Release Available: v%s\n", newTag)
-			case 2:
-				if new%2 == 0 {
-					fmt.Printf("New Bug Fix Available: v%s\n", newTag)
-				} else {
-					fmt.Printf("New Hotfix Available: v%s\n", newTag)
-				}
-			}
-			fmt.Printf("https://github.com/baconator696/Recu-Download/releases/\n\n")
+			fmt.Printf("New Update Available\n%s\n%s\n", resp.(map[string]any)["html_url"].(string),ANSIColor(resp.(map[string]any)["body"].(string),2))
 			return nil
 		}
 	}

@@ -49,7 +49,7 @@ func serialService(config tools.Templet) {
 		if data == nil {
 			continue
 		}
-		fmt.Printf("%d/%d:\n",i+1,len(playlists))
+		fmt.Printf("%d/%d:\n", i+1, len(playlists))
 		if tools.GetVideo(data, filenames[i], i, &config) == 0 {
 			continue
 		}
@@ -91,19 +91,26 @@ func downloadConent(config tools.Templet) {
 	tools.GetVideo(data, filename, 0, &config)
 }
 func readme() string {
-	return `Recurbate:
+	path := tools.Argparser(0)
+	if strings.Contains(path, string(os.PathSeparator)) {
+		split := strings.Split(path, string(os.PathSeparator))
+		path = split[len(split)-1]
+	}
+	string1 := `Recurbate:
 If ran for the first time, json configuration will be generated
 	in the working directory
 Fill in the json's URL, Cookie and User-Agent to allow the
 	program to run
 
-Usage: recurbate <json location> playlist/series <playlist.m3u8>
+Usage: `
+	string2 := ` <json location> playlist|series <playlist.m3u8>
 
 if "playlist" is used, only the .m3u8 playlist file will be
 	downloaded, specifiying the playlist location will
 	download the contents of the playlist
 if "series" is used, the program will download both the videos
 	in series`
+	return string1 + path + string2
 }
 func init() {
 	go func() {

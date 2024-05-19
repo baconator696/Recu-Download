@@ -321,18 +321,19 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 				}
 				if status == 410 {
 					fmt.Println("\nDownload Expired")
-					retry = 5
+					retry = 10
 				}
 				retry++
 				if err == nil {
 					err = fmt.Errorf("status Code: %d, %s", status, ANSIColor(string(data), 2))
 				}
-				if retry > 5 {
+				if retry > 10 {
 					fmt.Printf("\nError: %v\n", err)
 					fmt.Printf("Failed at %.2f%%\n", float32(step)/float32(length)*100)
 					return step
 				}
 				fmt.Printf("\n\033[2A\033[2KError: %v, Retrying...\n", shortenString(err, 40))
+				time.Sleep(100 * time.Millisecond)
 			}
 			dur = time.Since(start).Minutes()
 			if !writen {

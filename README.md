@@ -24,7 +24,7 @@ specifying `playlist` will cause the program to download only the .m3u8 file
 specifying `series` will cause the program to download the videos serially instead of in parallel
 
 specifying `playlist <playlist.m3u8>` will read the playlist from the location specified from `<playlist.m3u8>` and download that video
-### Advanced Usage
+### Advanced Usage for v1.11.0
 To specify a specific part of a video to download
 
 example:

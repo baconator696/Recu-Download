@@ -481,8 +481,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 				}
 			}
 		}
-		modifiedPlaylistString := strings.Join(modifiedPlaylist, "\n")
-		indexdata = []byte(modifiedPlaylistString)
+		indexdata = []byte(strings.Join(modifiedPlaylist, "\n"))
 	}
 	return indexdata, filename, "done"
 }

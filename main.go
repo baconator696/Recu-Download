@@ -17,7 +17,7 @@ func parallelService(config tools.Templet) {
 	playlists := make([][]byte, len(config.Urls))
 	filenames := make([]string, len(config.Urls))
 	for i, link := range config.Urls {
-		playlists[i], filenames[i] = tools.GetPlaylist(link, config.Header)
+		playlists[i], filenames[i] = config.GetPlaylist(link)
 	}
 	var wg sync.WaitGroup
 	for i, data := range playlists {
@@ -27,7 +27,7 @@ func parallelService(config tools.Templet) {
 		wg.Add(1)
 		go func(data []byte, i int) {
 			defer wg.Done()
-			if tools.GetVideo(data, filenames[i], i, &config) == 0 {
+			if config.GetVideo(data, filenames[i], i) == 0 {
 				return
 			}
 			err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
@@ -43,14 +43,14 @@ func serialService(config tools.Templet) {
 	playlists := make([][]byte, len(config.Urls))
 	filenames := make([]string, len(config.Urls))
 	for i, link := range config.Urls {
-		playlists[i], filenames[i] = tools.GetPlaylist(link, config.Header)
+		playlists[i], filenames[i] = config.GetPlaylist(link)
 	}
 	for i, data := range playlists {
 		if data == nil {
 			continue
 		}
 		fmt.Printf("%d/%d:\n", i+1, len(playlists))
-		if tools.GetVideo(data, filenames[i], i, &config) == 0 {
+		if config.GetVideo(data, filenames[i], i) == 0 {
 			continue
 		}
 		err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
@@ -62,7 +62,7 @@ func serialService(config tools.Templet) {
 }
 func downloadPlaylist(config tools.Templet) {
 	for _, v := range config.Urls {
-		data, filename := tools.GetPlaylist(v, config.Header)
+		data, filename := config.GetPlaylist(v)
 		if data == nil {
 			continue
 		}
@@ -88,7 +88,7 @@ func downloadConent(config tools.Templet) {
 		filename = tempSplit[len(tempSplit)-1]
 	}
 	filename = strings.ReplaceAll(filename, ".m3u8", "")
-	tools.GetVideo(data, filename, 0, &config)
+	config.GetVideo(data, filename, 0)
 }
 func readme() string {
 	path := tools.Argparser(0)
@@ -173,7 +173,7 @@ func main() {
 	case "series":
 		serialService(config)
 	case "parse":
-		err := tools.ParseHtml(tools.Argparser(3), config)
+		err := config.ParseHtml(tools.Argparser(3))
 		if err != nil {
 			fmt.Println(err)
 		} else {

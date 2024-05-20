@@ -11,7 +11,7 @@ First run will generate `config.json`, fill in urls to download and Cookie and U
 	"header": {
 		"Cookie": "",
 		"User-Agent": ""
-	},
+	}
 }
 ```
 
@@ -32,7 +32,11 @@ example:
 {
 	"urls": [
 		["https://recu.me/video/xxxxxxx/play","55:00","1:10:00","1:30:00"]
-	]
+	],
+	"header": {
+		"Cookie": "",
+		"User-Agent": ""
+	}
 }
 ```
 Where you specify the start, end and total length of the video

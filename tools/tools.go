@@ -15,7 +15,7 @@ import (
 
 var (
 	Abort bool
-	mtx sync.Mutex
+	mtx   sync.Mutex
 )
 
 // Defines the JSON used
@@ -67,6 +67,9 @@ func Argparser(n int) string {
 
 // Looks for the first occurence of start and end and returns the string in between
 func searchString(str string, start string, end string) (string, error) {
+	if len(str) <= len(start)+len(end) {
+		return "", fmt.Errorf("search term longer than the given string")
+	}
 	index1 := strings.Index(str, start)
 	index2 := strings.Index(str[index1+len(start):], end)
 	if index1 == -1 || index2 == -1 {
@@ -390,7 +393,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 			fmt.Printf("Failed Retrying...\033[18D")
 			if retry > 5 {
 				if err == nil {
-					err = fmt.Errorf("status code: %d, %s", status, ANSIColor(string(data), 2))
+					err = fmt.Errorf("%s, status code: %d", ANSIColor(string(data), 2), status)
 				}
 				return
 			}
@@ -601,6 +604,13 @@ func formatedHeader(refHeader map[string]string, videoUrl string, i int) (header
 		delete(header, "Sec-Ch-Ua-Model")
 		delete(header, "Sec-Ch-Ua-Platform-Version")
 	}
+	if i != 1 {
+		for i, v := range os.Args {
+			if v == "--custom-header" {
+				header["User-Agent"] = Argparser(i + 1)
+			}
+		}
+	}
 	return
 }
 
@@ -671,5 +681,32 @@ func SaveJson(config Templet) (err error) {
 		err = fmt.Errorf("error: Saving Json:%v", err)
 		return
 	}
+	return
+}
+
+// Parse Urls from HTML
+func ParseHtml(url string, config Templet) (err error) {
+	fmt.Println("Downloading HTML")
+	resp, code, err := request(url, 10, formatedHeader(config.Header, "", 1), nil, "GET")
+	if code != 200 || err != nil {
+		if err == nil {
+			err = fmt.Errorf("response: %s, status code: %d, cloudflare blocked", ANSIColor(string(resp), 2), code)
+		}
+		return
+	}
+	fmt.Println("Searching for Links")
+	prefix := strings.Join(strings.Split(url, "/")[:3], "/") + "/video/"
+	suffix := "/play"
+	var urls []any
+	lines := strings.Split(string(resp), "\n")
+	for _, v := range lines {
+		code, err := searchString(v, `href="/video/`, `/play"`)
+		if err != nil {
+			continue
+		}
+		urls = append(urls, prefix+code+suffix)
+	}
+	config.Urls = urls
+	err = SaveJson(config)
 	return
 }

@@ -154,26 +154,32 @@ func main() {
 		fmt.Println(err)
 		os.Exit(4)
 	}
-	if config.Urls[0] == "" || config.Header["Cookie"] == tools.TempletJSON().Header["Cookie"] || config.Header["User-Agent"] == tools.TempletJSON().Header["User-Agent"] {
+	if len(config.Urls) < 1 || config.Urls[0] == "" || config.Header["Cookie"] == "" || config.Header["User-Agent"] == "" {
 		fmt.Println("please modify config.json")
 		return
 	}
-	if tools.Argparser(3) != "" { // Checks if playlist file is passed and if it exists
-		_, err := os.Stat(tools.Argparser(3))
+	switch tools.Argparser(2) {
+	case "playlist":
+		if tools.Argparser(3) != "" && tools.Argparser(3) != "skip" {
+			_, err := os.Stat(tools.Argparser(3))
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(4)
+			}
+			downloadConent(config)
+		} else {
+			downloadPlaylist(config)
+		}
+	case "series":
+		serialService(config)
+	case "parse":
+		err := tools.ParseHtml(tools.Argparser(3), config)
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(4)
+		} else {
+			fmt.Println("Parsed HTML Successfully")
 		}
-		downloadConent(config)
-		return
-	} else if tools.Argparser(2) == "playlist" { // Checks if playlist and downloads it
-		downloadPlaylist(config)
-		return
-	} else if tools.Argparser(2) == "series" { // Checks if series and downloads it
-		serialService(config)
-		return
-	} else {
+	default:
 		parallelService(config)
-		return
 	}
 }

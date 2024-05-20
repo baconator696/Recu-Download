@@ -201,11 +201,11 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 		if r != nil {
 			fmt.Printf("urls are in wrong format, error: %v\n", r)
 			fail = 1
+			mutex.Unlock()
 		}
 	}()
 	var url string
 	mutex.Lock()
-	defer mutex.Unlock()
 	var duration []float64 = config.Duration
 	var num int = config.Num * -1
 	switch t := config.Urls[index].(type) {

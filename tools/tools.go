@@ -9,10 +9,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 var (
+	mutex sync.Mutex
 	Abort bool
 )
 
@@ -202,6 +204,8 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 		}
 	}()
 	var url string
+	mutex.Lock()
+	defer mutex.Unlock()
 	var duration []float64 = config.Duration
 	var num int = config.Num * -1
 	switch t := config.Urls[index].(type) {
@@ -227,6 +231,7 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 	default:
 		panic("url is incorrect type")
 	}
+	mutex.Unlock()
 	if duration == nil {
 		duration = []float64{0, 100}
 	}
@@ -234,9 +239,17 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 	fail = muxPlaylist(playlist, filename, formatedHeader(config.Header, "", 0), num, duration)
 	if fail == 0 {
 		fmt.Printf("Completed: %v:%v\n", filename, url)
+		mutex.Lock()
+		config.Urls = append(config.Urls[:index], config.Urls[index+1:]...)
+		err := SaveJson(*config)
+		if err != nil {
+			fmt.Println(err)
+		}
+		mutex.Unlock()
 		return
 	}
 	fmt.Printf("Download Failed at line: %v\n", fail)
+	mutex.Lock()
 	switch t := config.Urls[index].(type) {
 	case string:
 		config.Urls[index] = []any{t, fail}
@@ -260,6 +273,7 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 	if err != nil {
 		fmt.Println(err)
 	}
+	mutex.Unlock()
 	return
 }
 

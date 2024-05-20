@@ -150,7 +150,7 @@ func GetPlaylist(urlAny any, header map[string]string) ([]byte, string) {
 	case string:
 		url = t
 	case []any:
-		if len(t) >= 1 {
+		if len(t) > 0 {
 			url = t[0].(string)
 		} else {
 			panic("no url")
@@ -181,13 +181,17 @@ func percentPrase(times []any) []float64 {
 	for i, w := range times {
 		v, ok := w.(string)
 		if !ok {
-			fmt.Println("time is in wrong format")
+			fmt.Println("timestamps is in wrong format")
 			return nil
 		}
 		time := strings.Split(v, ":")
 		cons := 1
 		for j := len(time) - 1; j >= 0; j-- {
-			w, _ := strconv.Atoi(time[j])
+			w, err := strconv.Atoi(time[j])
+			if err != nil {
+				fmt.Println("timestamps is in wrong format")
+				return nil
+			}
 			secs[i] += w * cons
 			cons *= 60
 		}
@@ -346,7 +350,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 			if !writen {
 				err = os.WriteFile(filename+".ts", data, 0666)
 				if err != nil {
-					fmt.Println("DEBUG:248:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
+					fmt.Println("DEBUG:353:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
 				}
 				file, _ = os.OpenFile(filename+".ts", os.O_APPEND|os.O_WRONLY, 0666)
 				defer file.Close()
@@ -354,7 +358,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 			} else {
 				_, err = file.Write(data)
 				if err != nil {
-					fmt.Println("DEBUG:256:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
+					fmt.Println("DEBUG:361:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
 				}
 			}
 			avgsize.add(float64(len(data)))
@@ -416,7 +420,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		return nil, "", "panic"
 	}
 	id := strings.Split(url, "/")[4]
-	url = "https://recu.me/api/video/" + id + "?token=" + token
+	url = strings.Join(strings.Split(url, "/")[:3], "/") + "/api/video/" + id + "?token=" + token
 	fmt.Printf("\rGetting Link to Playlist: ")
 	apidata, err := downloadLoop(url, 10, formatedHeader(header, url, 2))
 	if err != nil {
@@ -430,7 +434,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 	case "shall_signin":
 		return nil, "", "cookie"
 	case "wrong_token":
-		return nil, "", "cloudflare"
+		return nil, "", "panic"
 	}
 	url, err = searchString(string(apidata), "<source src=\"", "\"")
 	if err != nil {
@@ -445,14 +449,9 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		return nil, "", "panic"
 	}
 	fmt.Printf("\r\033[2KDownloading Playlist: Complete\n")
-	filename, err := searchString(url, "hl/", "/index")
-	if err != nil {
-		fmt.Println(err)
-		return nil, filename, "panic"
-	}
-	filename = strings.ReplaceAll(filename, "/", "_")
+	filename := strings.Join(strings.Split(url, "/")[4:6], "_")
 	filename = "CB_" + strings.ReplaceAll(filename, ",", "_")
-	for i := 2010; i < 2050; i++ {
+	for i := 2015; i < 2050; i++ {
 		year := fmt.Sprintf("%d", i)
 		if strings.Contains(filename, year) {
 			filename = strings.Replace(filename, year, year[2:], 1)

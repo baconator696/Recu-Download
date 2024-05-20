@@ -201,6 +201,7 @@ func GetVideo(playlist []byte, filename string, index int, config *Templet) (fai
 		if r != nil {
 			fmt.Printf("urls are in wrong format, error: %v\n", r)
 			fail = 1
+			mutex.TryLock()
 			mutex.Unlock()
 		}
 	}()

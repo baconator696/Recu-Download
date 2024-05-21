@@ -472,12 +472,16 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		return nil, "", "cloudflare"
 	}
 	fmt.Printf("\r\033[2KDownloading HTML: Complete\n")
-	token, err := searchString(string(htmldata), "data-token=\"", "\"")
+	token, err := searchString(string(htmldata), `data-token="`, `"`)
 	if err != nil {
 		fmt.Println(err)
 		return nil, "", "panic"
 	}
-	id := strings.Split(url, "/")[5]
+	id, err := searchString(string(htmldata), token+`" data-video-id="`, `"`)
+	if err != nil {
+		fmt.Println(err)
+		return nil, "", "panic"
+	}
 	url = strings.Join(strings.Split(url, "/")[:3], "/") + "/api/video/" + id + "?token=" + token
 	fmt.Printf("\rGetting Link to Playlist: ")
 	apidata, err := downloadLoop(url, 10, formatedHeader(header, url, 2))
@@ -495,7 +499,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		fmt.Println("error: wrong token")
 		return nil, "", "panic"
 	}
-	url, err = searchString(string(apidata), "<source src=\"", "\"")
+	url, err = searchString(string(apidata), `<source src="`, `"`)
 	if err != nil {
 		fmt.Println(err)
 		return nil, "", "panic"

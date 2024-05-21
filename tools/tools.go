@@ -477,7 +477,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		fmt.Println(err)
 		return nil, "", "panic"
 	}
-	id, err := searchString(string(htmldata), token+`" data-video-id="`, `"`)
+	id, err := searchString(string(htmldata)[strings.Index(string(htmldata), token):], `data-video-id="`, `"`)
 	if err != nil {
 		fmt.Println(err)
 		return nil, "", "panic"

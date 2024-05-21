@@ -477,7 +477,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		fmt.Println(err)
 		return nil, "", "panic"
 	}
-	id := strings.Split(url, "/")[4]
+	id := strings.Split(url, "/")[5]
 	url = strings.Join(strings.Split(url, "/")[:3], "/") + "/api/video/" + id + "?token=" + token
 	fmt.Printf("\rGetting Link to Playlist: ")
 	apidata, err := downloadLoop(url, 10, formatedHeader(header, url, 2))
@@ -492,6 +492,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 	case "shall_signin":
 		return nil, "", "cookie"
 	case "wrong_token":
+		fmt.Println("error: wrong token")
 		return nil, "", "panic"
 	}
 	url, err = searchString(string(apidata), "<source src=\"", "\"")
@@ -516,16 +517,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 			break
 		}
 	}
-	i := 0
-	var prefix string
-	for {
-		j := strings.Index(url[i:], "/")
-		if j == -1 {
-			prefix = url[:i]
-			break
-		}
-		i = j + i + 1
-	}
+	prefix := url[:strings.LastIndex(url, "/")+1]
 	playlistString := string(indexdata)
 	if !strings.Contains(playlistString, prefix) {
 		playlistLines := strings.Split(playlistString, "\n")

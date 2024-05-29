@@ -135,7 +135,7 @@ func main() {
 	if tools.Argparser(1) != "" {
 		json_location = tools.Argparser(1)
 	}
-	_, err := os.Stat(json_location) // Check if json exists
+	_, err := os.Stat(json_location)
 	if err != nil {
 		defaultConfig := tools.TempletJSON()
 		tools.SaveJson(defaultConfig)
@@ -160,7 +160,7 @@ func main() {
 	}
 	switch tools.Argparser(2) {
 	case "playlist":
-		if tools.Argparser(3) != "" && tools.Argparser(3) != "skip" {
+		if tools.Argparser(3) != "" {
 			_, err := os.Stat(tools.Argparser(3))
 			if err != nil {
 				fmt.Println(err)

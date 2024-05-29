@@ -426,12 +426,14 @@ func (config Templet) ParseHtml(url string) (err error) {
 		return
 	}
 	fmt.Println("Searching for Links")
-	prefix := strings.Join(strings.Split(url, "/")[:3], "/") + "/video/"
+	urlSplit := strings.Split(url, "/")
+	name := urlSplit[4]
+	prefix := strings.Join(urlSplit[:3], "/") + fmt.Sprintf("/%s/video/",name)
 	suffix := "/play"
 	var urls []any
 	lines := strings.Split(string(resp), "\n")
 	for _, v := range lines {
-		code, err := searchString(v, `href="/video/`, `/play"`)
+		code, err := searchString(v, fmt.Sprintf(`href="/%s/video/`,name), `/play"`)
 		if err != nil {
 			continue
 		}
@@ -694,13 +696,6 @@ func formatedHeader(refHeader map[string]string, videoUrl string, i int) (header
 		delete(header, "Sec-Ch-Ua-Full-Version")
 		delete(header, "Sec-Ch-Ua-Model")
 		delete(header, "Sec-Ch-Ua-Platform-Version")
-	}
-	if i != 1 {
-		for i, v := range os.Args {
-			if v == "--custom-header" {
-				header["User-Agent"] = Argparser(i + 1)
-			}
-		}
 	}
 	return
 }

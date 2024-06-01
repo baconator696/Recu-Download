@@ -428,12 +428,12 @@ func (config Templet) ParseHtml(url string) (err error) {
 	fmt.Println("Searching for Links")
 	urlSplit := strings.Split(url, "/")
 	name := urlSplit[4]
-	prefix := strings.Join(urlSplit[:3], "/") + fmt.Sprintf("/%s/video/",name)
+	prefix := strings.Join(urlSplit[:3], "/") + fmt.Sprintf("/%s/video/", name)
 	suffix := "/play"
 	var urls []any
 	lines := strings.Split(string(resp), "\n")
 	for _, v := range lines {
-		code, err := searchString(v, fmt.Sprintf(`href="/%s/video/`,name), `/play"`)
+		code, err := searchString(v, fmt.Sprintf(`href="/%s/video/`, name), `/play"`)
 		if err != nil {
 			continue
 		}
@@ -616,6 +616,17 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 			}
 			dur = time.Since(start).Minutes()
 			if !writen {
+				_, err := os.Stat(filename + ".ts")
+				if err == nil {
+					for i := 1; i > 0; i++ {
+						new := fmt.Sprintf("%s(%d)", filename, i)
+						_, err := os.Stat(new + ".ts")
+						if err != nil {
+							filename = new
+							break
+						}
+					}
+				}
 				err = os.WriteFile(filename+".ts", data, 0666)
 				if err != nil {
 					fmt.Println("DEBUG:353:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")

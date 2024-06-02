@@ -175,7 +175,7 @@ func percentPrase(times []any) []float64 {
 	for i, w := range times {
 		v, ok := w.(string)
 		if !ok {
-			fmt.Println("timestamps is in wrong format")
+			fmt.Printf("timestamps is in wrong format: %v\n", times)
 			return nil
 		}
 		time := strings.Split(v, ":")
@@ -183,7 +183,7 @@ func percentPrase(times []any) []float64 {
 		for j := len(time) - 1; j >= 0; j-- {
 			w, err := strconv.Atoi(time[j])
 			if err != nil {
-				fmt.Println("timestamps is in wrong format")
+				fmt.Printf("timestamps is in wrong format: %v\n", times)
 				return nil
 			}
 			secs[i] += w * cons

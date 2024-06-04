@@ -548,9 +548,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 	var err error
 	var file *os.File
 	var avgdur, avgsize AvgBuffer
-	var getavgdur, dur, eta, percent, speed float64
-	var retry, restart int
-	var start time.Time
+	var restart int
 	indexlist := strings.Split(string(playlist), "\n")
 	length := len(indexlist)
 	if num == 0 || num > length/2 {
@@ -573,21 +571,37 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 		duration[1] = 100
 	}
 	step := int(float64(length) * duration[0] / 100)
-	writen := false
 	if restart > 0 {
 		step = restart
 		file, err = os.OpenFile(filename+".ts", os.O_APPEND|os.O_WRONLY, 0666)
 		if err != nil {
-			fmt.Println("Error: original file not found, creating new file")
-		} else {
-			defer file.Close()
-			writen = true
+			fmt.Fprintf(os.Stderr, "oringal file not found, creating new one")
 		}
 	}
+	if file == nil {
+		_, err = os.Stat(filename + ".ts")
+		if err == nil {
+			for i := 1; i > 0; i++ {
+				new := fmt.Sprintf("%s(%d)", filename, i)
+				_, err := os.Stat(new + ".ts")
+				if err != nil {
+					filename = new
+					break
+				}
+			}
+		}
+		file, err = os.OpenFile(filename+".ts", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "can not create file: %v", err)
+			return step
+		}
+	}
+	defer file.Close()
 	for step < int(float64(length)*duration[1]/100) {
 		if len(indexlist[step]) > 0 && indexlist[step][0] != '#' {
-			retry = 0
-			start = time.Now()
+			retry := 0
+			maxRetrys := 5
+			start := time.Now()
 			for {
 				var status int
 				data, status, err = request(indexlist[step], 60, header, nil, "GET")
@@ -595,58 +609,41 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 					break
 				}
 				if status == 429 {
-					time.Sleep(time.Second)
+					time.Sleep(100 * time.Millisecond)
 					continue
 				}
 				if status == 410 {
-					fmt.Println("\nDownload Expired")
-					retry = 10
+					fmt.Fprintln(os.Stderr, "\nDownload Expired")
+					retry = maxRetrys
 				}
 				retry++
 				if err == nil {
 					err = fmt.Errorf("status Code: %d, %s", status, string(data))
 				}
-				if retry > 10 {
-					fmt.Printf("\nError: %v\n", ANSIColor(err, 2))
-					fmt.Printf("Failed at %.2f%%\n", float32(step)/float32(length)*100)
+				if retry > maxRetrys {
+					fmt.Println()
+					fmt.Fprintf(os.Stderr, "Error: %v\n", ANSIColor(err, 2))
+					fmt.Fprintf(os.Stderr, "Failed at %.2f%%\n", float32(step)/float32(length)*100)
 					return step
 				}
-				fmt.Printf("\n\033[2A\033[2KError: %v, Retrying...\n", ANSIColor(shortenString(err, 40), 2))
+				fmt.Fprintf(os.Stderr, "\n\033[2A\033[2KError: %v, Retrying...\n", ANSIColor(shortenString(err, 40), 2))
 				time.Sleep(100 * time.Millisecond)
 			}
-			dur = time.Since(start).Minutes()
-			if !writen {
-				_, err := os.Stat(filename + ".ts")
-				if err == nil {
-					for i := 1; i > 0; i++ {
-						new := fmt.Sprintf("%s(%d)", filename, i)
-						_, err := os.Stat(new + ".ts")
-						if err != nil {
-							filename = new
-							break
-						}
-					}
-				}
-				err = os.WriteFile(filename+".ts", data, 0666)
-				if err != nil {
-					fmt.Println("DEBUG:353:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
-				}
-				file, _ = os.OpenFile(filename+".ts", os.O_APPEND|os.O_WRONLY, 0666)
-				defer file.Close()
-				writen = true
-			} else {
-				_, err = file.Write(data)
-				if err != nil {
-					fmt.Println("DEBUG:361:FAILED TO WRITE DATA, ERROR HANDELING NEEDED")
-				}
+			dur := time.Since(start).Minutes()
+			_, err = file.Write(data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "can not write file: %v", err)
+				return step
 			}
+			// Calculate User Interface Timings
 			avgsize.add(float64(len(data)))
 			avgdur.add(dur)
-			getavgdur = avgdur.average()
-			speed = avgsize.average() / (getavgdur * 60)
-			eta = getavgdur * ((float64(length) * duration[1] / 100) - float64(step)) / 2
-			percent = float64(step) / float64(length) * 100
+			getavgdur := avgdur.average()
+			speed := avgsize.average() / (getavgdur * 60)
+			eta := getavgdur * ((float64(length) * duration[1] / 100) - float64(step)) / 2
+			percent := float64(step) / float64(length) * 100
 			fmt.Printf("\n\033[A\033[2KDownloading: %s\tRemaining: %s\t%s", ANSIColor(fmt.Sprintf("%.1f%%", percent), 33), formatMinutes(eta), formatBytesPerSecond(speed))
+			// //
 			if num > 10 {
 				step += int(math.Ceil(float64(length) / float64(num)))
 			} else {
@@ -655,11 +652,11 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 		}
 		step++
 		if Abort {
-			fmt.Printf("\n")
+			fmt.Println("\naborting...")
 			return step
 		}
 	}
-	fmt.Printf("\n")
+	fmt.Println()
 	return 0
 }
 

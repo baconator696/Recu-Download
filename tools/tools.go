@@ -175,7 +175,7 @@ func percentPrase(times []any) []float64 {
 	for i, w := range times {
 		v, ok := w.(string)
 		if !ok {
-			fmt.Printf("timestamps is in wrong format: %v\n", times)
+			fmt.Fprintf(os.Stderr, "timestamps is in wrong format: %v\n", times)
 			return nil
 		}
 		time := strings.Split(v, ":")
@@ -183,7 +183,7 @@ func percentPrase(times []any) []float64 {
 		for j := len(time) - 1; j >= 0; j-- {
 			w, err := strconv.Atoi(time[j])
 			if err != nil {
-				fmt.Printf("timestamps is in wrong format: %v\n", times)
+				fmt.Fprintf(os.Stderr, "timestamps is in wrong format: %v\n", times)
 				return nil
 			}
 			secs[i] += w * cons
@@ -310,7 +310,7 @@ func (config Templet) GetPlaylist(urlAny any) ([]byte, string) {
 	defer func() {
 		r := recover()
 		if r != nil {
-			fmt.Printf("urls are in wrong format, error: %v\n", r)
+			fmt.Fprintf(os.Stderr, "urls are in wrong format, error: %v\n", r)
 		}
 	}()
 	var url string
@@ -329,13 +329,13 @@ func (config Templet) GetPlaylist(urlAny any) ([]byte, string) {
 	data, filename, status := recurbateParser(url, config.Header)
 	switch status {
 	case "cloudflare":
-		fmt.Printf("Cloudflare Blocked: Failed on url: %v\n", url)
+		fmt.Fprintf(os.Stderr, "Cloudflare Blocked: Failed on url: %v\n", url)
 	case "cookie":
-		fmt.Printf("Please Log in: Failed on url: %v\n", url)
+		fmt.Fprintf(os.Stderr, "Please Log in: Failed on url: %v\n", url)
 	case "wait":
-		fmt.Printf("Daily View Used: Failed on url: %v\n", url)
+		fmt.Fprintf(os.Stderr, "Daily View Used: Failed on url: %v\n", url)
 	case "panic":
-		fmt.Printf("Panic: Failed on url: %v\n", url)
+		fmt.Fprintf(os.Stderr, "Panic: Failed on url: %v\n", url)
 	case "done":
 		return data, filename
 	}
@@ -347,7 +347,7 @@ func (config *Templet) GetVideo(playlist []byte, filename string, index int) (fa
 	defer func() {
 		r := recover()
 		if r != nil {
-			fmt.Printf("urls are in wrong format, error: %v\n", r)
+			fmt.Fprintf(os.Stderr, "urls are in wrong format, error: %v\n", r)
 			fail = 1
 		}
 	}()
@@ -386,7 +386,7 @@ func (config *Templet) GetVideo(playlist []byte, filename string, index int) (fa
 		fmt.Printf("Completed: %v:%v\n", filename, url)
 		return
 	}
-	fmt.Printf("Download Failed at line: %v\n", fail)
+	fmt.Fprintf(os.Stderr, "Download Failed at line: %v\n", fail)
 	switch t := config.Urls[index].(type) {
 	case string:
 		config.Urls[index] = []any{t, fail}
@@ -463,7 +463,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 			}
 			retry++
 			timeout += 30
-			time.Sleep(time.Second)
+			time.Sleep(time.Millisecond * 100)
 		}
 		return
 	}
@@ -575,7 +575,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 		step = restart
 		file, err = os.OpenFile(filename+".ts", os.O_APPEND|os.O_WRONLY, 0666)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "oringal file not found, creating new one")
+			fmt.Fprintf(os.Stderr, "oringal file not found, creating new one: %v", err)
 		}
 	}
 	if file == nil {

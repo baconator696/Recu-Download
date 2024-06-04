@@ -33,7 +33,7 @@ func parallelService(config tools.Templet) {
 			err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
 			if err != nil {
 				fmt.Println(data)
-				fmt.Printf("Failed to write playlist data: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 			}
 		}(data, i)
 	}
@@ -56,7 +56,7 @@ func serialService(config tools.Templet) {
 		err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
 		if err != nil {
 			fmt.Println(data)
-			fmt.Printf("Failed to write playlist data: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 		}
 	}
 }
@@ -69,7 +69,7 @@ func downloadPlaylist(config tools.Templet) {
 		err := os.WriteFile(filename+".m3u8", data, 0666)
 		if err != nil {
 			fmt.Println(data)
-			fmt.Printf("Failed to write playlist data: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 			continue
 		}
 		fmt.Printf("Completed: %v:%v\n", filename, v)
@@ -79,7 +79,7 @@ func downloadConent(config tools.Templet) {
 	playlistPath := tools.Argparser(3)
 	data, err := os.ReadFile(playlistPath)
 	if err != nil {
-		fmt.Printf("Failed to read playlist: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to read playlist: %v\n", err)
 		return
 	}
 	filename := playlistPath
@@ -150,8 +150,7 @@ func main() {
 	var config tools.Templet
 	err = json.Unmarshal(jsonData, &config)
 	if err != nil {
-		fmt.Println("Error: Reading Json")
-		fmt.Println(err)
+		fmt.Fprintf(os.Stderr, "Error: Reading Json: %v", err)
 		os.Exit(4)
 	}
 	if len(config.Urls) < 1 || config.Urls[0] == "" || config.Header["Cookie"] == "" || config.Header["User-Agent"] == "" {

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
 var tag string
@@ -36,6 +37,7 @@ func parallelService(config tools.Templet) {
 				fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 			}
 		}(data, i)
+		time.Sleep(time.Second)
 	}
 	wg.Wait()
 }

@@ -140,7 +140,7 @@ func searchString(str string, start string, end string) (string, error) {
 	index1 := strings.Index(str, start)
 	index2 := strings.Index(str[index1+len(start):], end)
 	if index1 == -1 || index2 == -1 {
-		return "", fmt.Errorf("could not find {%v} and/or {%v} in {%v}", start, end, str)
+		return "", fmt.Errorf("could not find {%v} and/or {%v} in {%v}", start, end, ANSIColor(str, 2))
 	}
 	return str[index1+len(start) : index1+len(start)+index2], nil
 }

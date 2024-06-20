@@ -670,21 +670,20 @@ func formatedHeader(refHeader map[string]string, videoUrl string, i int) (header
 	header["Accept-Language"] = "en-US,en;q=0.9"
 	header["Origin"] = "https://recu.me"
 	header["Priority"] = "u=1, i"
-	header["Sec-Ch-Ua"] = `"Chromium";v="124", "Microsoft Edge";v="124", "Not-A.Brand";v="99"`
-	header["Sec-Ch-Ua-Full-Version-List"] = `"Chromium";v="124.0.6367.201", "Microsoft Edge";v="124.0.2478.97", "Not-A.Brand";v="99.0.0.0"`
+	header["Sec-Ch-Ua"] = `"Not/A)Brand";v="8", "Chromium";v="126"`
+	header["Sec-Ch-Ua-Full-Version-List"] = `"Not/A)Brand";v="8.0.0.0", "Chromium";v="126.0.6478.62"`
 	header["Sec-Ch-Ua-Mobile"] = "?0"
 	header["Sec-Ch-Ua-Platform"] = `"Windows"`
 	header["Sec-Fetch-Dest"] = "empty"
 	header["Sec-Fetch-Mode"] = "cors"
 	header["Sec-Ch-Ua-Arch"] = `"x86"`
 	header["Sec-Ch-Ua-Bitness"] = `"64"`
-	header["Sec-Ch-Ua-Full-Version"] = `"124.0.2478.97"`
+	header["Sec-Ch-Ua-Full-Version"] = `"126.0.2592.61"`
 	header["Sec-Ch-Ua-Model"] = `""`
-	header["Sec-Ch-Ua-Platform-Version"] = `"15.0.0"`
+	header["Sec-Ch-Ua-Platform-Version"] = `"19.0.0"`
 	switch i {
 	case 1: // html
 		header["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-		header["Cache-Control"] = "max-age=0"
 		header["Referer"] = "https://recu.me/"
 		header["Sec-Fetch-Dest"] = "document"
 		header["Sec-Fetch-Mode"] = "navigate"

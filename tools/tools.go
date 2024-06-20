@@ -619,8 +619,9 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 				}
 				retry++
 				if err == nil {
+					err = fmt.Errorf("status Code: %d, %s ", status, string(data))
+				} else {
 					timeout += 30
-					err = fmt.Errorf("status Code: %d, %s", status, string(data))
 				}
 				if retry > maxRetrys {
 					fmt.Println()

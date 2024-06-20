@@ -599,12 +599,13 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 	defer file.Close()
 	for step < int(float64(length)*duration[1]/100) {
 		if len(indexlist[step]) > 0 && indexlist[step][0] != '#' {
+			timeout := 10
 			retry := 0
 			maxRetrys := 5
 			start := time.Now()
 			for {
 				var status int
-				data, status, err = request(indexlist[step], 60, header, nil, "GET")
+				data, status, err = request(indexlist[step], timeout, header, nil, "GET")
 				if err == nil && status == 200 {
 					break
 				}
@@ -618,6 +619,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 				}
 				retry++
 				if err == nil {
+					timeout += 30
 					err = fmt.Errorf("status Code: %d, %s", status, string(data))
 				}
 				if retry > maxRetrys {

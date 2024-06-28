@@ -514,15 +514,22 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		return nil, "", "panic"
 	}
 	fmt.Printf("\r\033[2KDownloading Playlist: Complete\n")
-	filename := strings.Join(strings.Split(url, "/")[4:6], "_")
-	filename = "CB_" + strings.ReplaceAll(filename, ",", "_")
-	for i := 2015; i < 2050; i++ {
-		year := fmt.Sprintf("%d", i)
-		if strings.Contains(filename, year) {
-			filename = strings.Replace(filename, year, year[2:], 1)
-			break
-		}
+	urlSplit := strings.Split(url, "/")
+	if len(urlSplit) < 6 {
+		fmt.Println("error: wrong url format")
+		return nil, "", "panic"
 	}
+	username := urlSplit[4]
+	date := strings.ReplaceAll(urlSplit[5], ",", "-")
+	dateSplit := strings.Split(date, "-")
+	if len(dateSplit) < 5 {
+		fmt.Println("error: wrong date format")
+		return nil, "", "panic"
+	}
+	if len(dateSplit[0]) == 4 {
+		dateSplit[0] = dateSplit[0][2:]
+	}
+	filename := fmt.Sprintf("CB_%s_%s-%s-%s_%s-%s", username, dateSplit[0], dateSplit[1], dateSplit[2], dateSplit[3],dateSplit[4])
 	prefix := url[:strings.LastIndex(url, "/")+1]
 	playlistString := string(indexdata)
 	if !strings.Contains(playlistString, prefix) {

@@ -507,13 +507,13 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		return nil, "", "panic"
 	}
 	url = strings.ReplaceAll(url, "amp;", "")
-	fmt.Printf("\rDownloading Playlist: ")
+	fmt.Printf("\rDownloading Playlists: ")
 	indexdata, err := downloadLoop(url, 10, formatedHeader(header, "", 0))
 	if err != nil {
 		fmt.Println(err)
 		return nil, "", "panic"
 	}
-	fmt.Printf("\r\033[2KDownloading Playlist: Complete\n")
+	fmt.Printf("\r\033[2KDownloading Playlists: Complete\n")
 	urlSplit := strings.Split(url, "/")
 	if len(urlSplit) < 6 {
 		fmt.Println("error: wrong url format")
@@ -529,8 +529,23 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 	if len(dateSplit[0]) == 4 {
 		dateSplit[0] = dateSplit[0][2:]
 	}
-	filename := fmt.Sprintf("CB_%s_%s-%s-%s_%s-%s", username, dateSplit[0], dateSplit[1], dateSplit[2], dateSplit[3],dateSplit[4])
+	filename := fmt.Sprintf("CB_%s_%s-%s-%s_%s-%s", username, dateSplit[0], dateSplit[1], dateSplit[2], dateSplit[3], dateSplit[4])
 	prefix := url[:strings.LastIndex(url, "/")+1]
+	if strings.Contains(string(indexdata), "EXT-X-STREAM-INF") {
+		playlists := strings.Split(string(indexdata), "\n")
+		for i := 0; i < len(playlists)-1; i++ {
+			if strings.Contains(playlists[i], "NAME=max") {
+				url = prefix + playlists[i+1]
+			}
+		}
+		fmt.Printf("\rDownloading Playlist: ")
+		indexdata, err = downloadLoop(url, 10, formatedHeader(header, "", 0))
+		if err != nil {
+			fmt.Println(err)
+			return nil, "", "panic"
+		}
+		fmt.Printf("\r\033[2KDownloading Playlist: Complete\n")
+	}
 	playlistString := string(indexdata)
 	if !strings.Contains(playlistString, prefix) {
 		playlistLines := strings.Split(playlistString, "\n")

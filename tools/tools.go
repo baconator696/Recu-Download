@@ -326,16 +326,16 @@ func (config Templet) GetPlaylist(urlAny any) ([]byte, string) {
 	default:
 		panic("url is incorrect type")
 	}
-	data, filename, status := recurbateParser(url, config.Header)
+	data, filename, status, err := recurbateParser(url, config.Header)
 	switch status {
 	case "cloudflare":
-		fmt.Fprintf(os.Stderr, "Cloudflare Blocked: Failed on url: %v\n", url)
+		fmt.Fprintf(os.Stderr, "%s\nCloudflare Blocked: Failed on url: %v\n", err.Error(), url)
 	case "cookie":
 		fmt.Fprintf(os.Stderr, "Please Log in: Failed on url: %v\n", url)
 	case "wait":
 		fmt.Fprintf(os.Stderr, "Daily View Used: Failed on url: %v\n", url)
 	case "panic":
-		fmt.Fprintf(os.Stderr, "Panic: Failed on url: %v\n", url)
+		fmt.Fprintf(os.Stderr, "Error: %s\nFailed on url: %v\n", err.Error(), url)
 	case "done":
 		return data, filename
 	}
@@ -444,8 +444,8 @@ func (config Templet) ParseHtml(url string) (err error) {
 	return
 }
 
-// Takes recurbate video URL and returns playlist raw data and returns file name {indexdata, filename, "done"}
-func recurbateParser(url string, header map[string]string) ([]byte, string, string) {
+// Takes recurbate video URL and returns playlist raw data and returns file name {indexdata, filename, "done", error}
+func recurbateParser(url string, header map[string]string) ([]byte, string, string, error) {
 	downloadLoop := func(url string, timeout int, header map[string]string) (data []byte, err error) {
 		retry := 0
 		for {
@@ -470,61 +470,52 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 	fmt.Printf("\rDownloading HTML: ")
 	htmldata, err := downloadLoop(url, 10, formatedHeader(header, "", 1))
 	if err != nil {
-		fmt.Println(err)
-		return nil, "", "cloudflare"
+		return nil, "", "cloudflare", err
 	}
 	fmt.Printf("\r\033[2KDownloading HTML: Complete\n")
 	token, err := searchString(string(htmldata), `data-token="`, `"`)
 	if err != nil {
-		fmt.Println(err)
-		return nil, "", "panic"
+		return nil, "", "panic", err
 	}
 	id, err := searchString(string(htmldata)[strings.Index(string(htmldata), token):], `data-video-id="`, `"`)
 	if err != nil {
-		fmt.Println(err)
-		return nil, "", "panic"
+		return nil, "", "panic", err
 	}
 	url = strings.Join(strings.Split(url, "/")[:3], "/") + "/api/video/" + id + "?token=" + token
 	fmt.Printf("\rGetting Link to Playlist: ")
 	apidata, err := downloadLoop(url, 10, formatedHeader(header, url, 2))
 	if err != nil {
-		fmt.Println(err)
-		return nil, "", "panic"
+		return nil, "", "panic", err
 	}
 	fmt.Printf("\r\033[2KGetting Link to Playlist: Complete\n")
 	switch string(apidata) {
 	case "shall_subscribe":
-		return nil, "", "wait"
+		return nil, "", "wait", nil
 	case "shall_signin":
-		return nil, "", "cookie"
+		return nil, "", "cookie", nil
 	case "wrong_token":
-		fmt.Println("error: wrong token")
-		return nil, "", "panic"
+		return nil, "", "panic", fmt.Errorf("wrong token")
 	}
 	url, err = searchString(string(apidata), `<source src="`, `"`)
 	if err != nil {
-		fmt.Println(err)
-		return nil, "", "panic"
+		return nil, "", "panic", err
 	}
 	url = strings.ReplaceAll(url, "amp;", "")
 	fmt.Printf("\rDownloading Playlists: ")
 	indexdata, err := downloadLoop(url, 10, formatedHeader(header, "", 0))
 	if err != nil {
-		fmt.Println(err)
-		return nil, "", "panic"
+		return nil, "", "panic", err
 	}
 	fmt.Printf("\r\033[2KDownloading Playlists: Complete\n")
 	urlSplit := strings.Split(url, "/")
 	if len(urlSplit) < 6 {
-		fmt.Println("error: wrong url format")
-		return nil, "", "panic"
+		return nil, "", "panic", fmt.Errorf("wrong url format")
 	}
 	username := urlSplit[4]
 	date := strings.ReplaceAll(urlSplit[5], ",", "-")
 	dateSplit := strings.Split(date, "-")
 	if len(dateSplit) < 5 {
-		fmt.Println("error: wrong date format")
-		return nil, "", "panic"
+		return nil, "", "panic", fmt.Errorf("wrong date format")
 	}
 	if len(dateSplit[0]) == 4 {
 		dateSplit[0] = dateSplit[0][2:]
@@ -541,8 +532,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		fmt.Printf("\rDownloading Playlist: ")
 		indexdata, err = downloadLoop(url, 10, formatedHeader(header, "", 0))
 		if err != nil {
-			fmt.Println(err)
-			return nil, "", "panic"
+			return nil, "", "panic", err
 		}
 		fmt.Printf("\r\033[2KDownloading Playlist: Complete\n")
 	}
@@ -561,7 +551,7 @@ func recurbateParser(url string, header map[string]string) ([]byte, string, stri
 		}
 		indexdata = []byte(strings.Join(modifiedPlaylist, "\n"))
 	}
-	return indexdata, filename, "done"
+	return indexdata, filename, "done", nil
 }
 
 // Muxes the transport streams and saves it to a file

@@ -642,7 +642,7 @@ func muxPlaylist(playlist []byte, filename string, header map[string]string, num
 					return step
 				}
 				fmt.Fprintf(os.Stderr, "\n\033[2A\033[2KError: %v, Retrying...\n", ANSIColor(shortenString(err, 40), 2))
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(time.Second)
 			}
 			dur := time.Since(start).Minutes()
 			_, err = file.Write(data)

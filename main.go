@@ -158,6 +158,7 @@ func main() {
 	}
 	if cfg.Empty() {
 		fmt.Println("please modify config.json")
+		return
 	}
 	switch tools.Argparser(2) {
 	case "playlist":

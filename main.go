@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"recurbate/config"
+	"recurbate/playlist"
 	"recurbate/tools"
 	"strings"
 	"sync"
@@ -14,70 +16,68 @@ import (
 
 var tag string
 
-func parallelService(config tools.Templet) {
-	playlists := make([][]byte, len(config.Urls))
-	filenames := make([]string, len(config.Urls))
-	for i, link := range config.Urls {
-		playlists[i], filenames[i] = config.GetPlaylist(link)
+func parallelService(cfg config.Config) {
+	playlists := make([]playlist.Playlist, len(cfg.Urls))
+	for i, link := range cfg.Urls {
+		playlists[i] = cfg.GetPlaylist(link)
 	}
 	var wg sync.WaitGroup
-	for i, data := range playlists {
-		if data == nil {
+	for i, playList := range playlists {
+		if playList.IsNil() {
 			continue
 		}
 		wg.Add(1)
-		go func(data []byte, i int) {
+		go func(playList playlist.Playlist, i int) {
 			defer wg.Done()
-			if config.GetVideo(data, filenames[i], i) == 0 {
+			if cfg.GetVideo(playList, i) == 0 {
 				return
 			}
-			err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
+			err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
 			if err != nil {
-				fmt.Println(data)
+				fmt.Println(playList.M3u8)
 				fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 			}
-		}(data, i)
+		}(playList, i)
 		time.Sleep(time.Second)
 	}
 	wg.Wait()
 }
-func serialService(config tools.Templet) {
-	playlists := make([][]byte, len(config.Urls))
-	filenames := make([]string, len(config.Urls))
-	for i, link := range config.Urls {
-		playlists[i], filenames[i] = config.GetPlaylist(link)
+func serialService(cfg config.Config) {
+	playlists := make([]playlist.Playlist, len(cfg.Urls))
+	for i, link := range cfg.Urls {
+		playlists[i] = cfg.GetPlaylist(link)
 	}
-	for i, data := range playlists {
-		if data == nil {
+	for i, playList := range playlists {
+		if playList.IsNil() {
 			continue
 		}
 		fmt.Printf("%d/%d:\n", i+1, len(playlists))
-		if config.GetVideo(data, filenames[i], i) == 0 {
+		if cfg.GetVideo(playList, i) == 0 {
 			continue
 		}
-		err := os.WriteFile(filenames[i]+".m3u8", data, 0666)
+		err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
 		if err != nil {
-			fmt.Println(data)
+			fmt.Println(playList.M3u8)
 			fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 		}
 	}
 }
-func downloadPlaylist(config tools.Templet) {
-	for _, v := range config.Urls {
-		data, filename := config.GetPlaylist(v)
-		if data == nil {
+func downloadPlaylist(cfg config.Config) {
+	for _, v := range cfg.Urls {
+		playList := cfg.GetPlaylist(v)
+		if playList.IsNil() {
 			continue
 		}
-		err := os.WriteFile(filename+".m3u8", data, 0666)
+		err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
 		if err != nil {
-			fmt.Println(data)
+			fmt.Println(playList.M3u8)
 			fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 			continue
 		}
-		fmt.Printf("Completed: %v:%v\n", filename, v)
+		fmt.Printf("Completed: %v:%v\n", playList.Filename, v)
 	}
 }
-func downloadConent(config tools.Templet) {
+func downloadConent(cfg config.Config) {
 	playlistPath := tools.Argparser(3)
 	data, err := os.ReadFile(playlistPath)
 	if err != nil {
@@ -90,7 +90,8 @@ func downloadConent(config tools.Templet) {
 		filename = tempSplit[len(tempSplit)-1]
 	}
 	filename = strings.ReplaceAll(filename, ".m3u8", "")
-	config.GetVideo(data, filename, 0)
+	playList := playlist.NewFromUsername(data, filename)
+	cfg.GetVideo(playList, 0)
 }
 func readme() string {
 	path := tools.Argparser(0)
@@ -139,8 +140,8 @@ func main() {
 	}
 	_, err := os.Stat(json_location)
 	if err != nil {
-		defaultConfig := tools.TempletJSON()
-		tools.SaveJson(defaultConfig)
+		defaultConfig := config.Default()
+		defaultConfig.Save()
 		fmt.Printf("%v created in working directory\nPlease fill in the %v with the \n\tURLs to Download\n\tCookies\n\tUser-Agent\n", json_location, json_location)
 		return
 	}
@@ -149,15 +150,14 @@ func main() {
 		fmt.Println(err)
 		os.Exit(4)
 	}
-	var config tools.Templet
-	err = json.Unmarshal(jsonData, &config)
+	var cfg config.Config
+	err = json.Unmarshal(jsonData, &cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: Reading Json: %v", err)
 		os.Exit(4)
 	}
-	if len(config.Urls) < 1 || config.Urls[0] == "" || config.Header["Cookie"] == "" || config.Header["User-Agent"] == "" {
+	if cfg.Empty() {
 		fmt.Println("please modify config.json")
-		return
 	}
 	switch tools.Argparser(2) {
 	case "playlist":
@@ -167,20 +167,20 @@ func main() {
 				fmt.Println(err)
 				os.Exit(4)
 			}
-			downloadConent(config)
+			downloadConent(cfg)
 		} else {
-			downloadPlaylist(config)
+			downloadPlaylist(cfg)
 		}
 	case "series":
-		serialService(config)
-	case "parse":
-		err := config.ParseHtml(tools.Argparser(3))
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println("Parsed HTML Successfully")
-		}
+		serialService(cfg)
+	//case "parse":
+	//	err := config.ParseHtml(tools.Argparser(3))
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	} else {
+	//		fmt.Println("Parsed HTML Successfully")
+	//	}
 	default:
-		parallelService(config)
+		parallelService(cfg)
 	}
 }

@@ -142,6 +142,7 @@ func Default() Config {
 
 // Saves Json
 func (config *Config) Save() (err error) {
+	mtx.Lock()
 	var jsonData []byte
 	jsonData, err = json.MarshalIndent(struct {
 		Urls   []any             `json:"urls"`
@@ -157,7 +158,6 @@ func (config *Config) Save() (err error) {
 	if tools.Argparser(1) != "" {
 		jsonLocation = tools.Argparser(1)
 	}
-	mtx.Lock()
 	err = os.WriteFile(jsonLocation, jsonData, 0666)
 	if err != nil {
 		err = fmt.Errorf("error: Saving Json:%v", err)

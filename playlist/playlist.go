@@ -16,20 +16,7 @@ func New(raw_m3u8 []byte, url string) (playList Playlist, err error) {
 	if err != nil {
 		return playList, err
 	}
-	playlistLines := strings.Split(string(raw_m3u8), "\n")
-	list := make([]string, 0, len(playlistLines)/2)
-	for _, line := range playlistLines {
-		if len(line) < 2 || line[0] == '#' {
-			continue
-		}
-		list = append(list, line)
-	}
-	list = list[:len(list)-1]
-	playList = Playlist{
-		M3u8:     raw_m3u8,
-		List:     list,
-		Filename: filename,
-	}
+	playList = NewFromUsername(raw_m3u8, filename)
 	return
 }
 func NewFromUsername(raw_m3u8 []byte, filename string) (playList Playlist) {
@@ -41,7 +28,9 @@ func NewFromUsername(raw_m3u8 []byte, filename string) (playList Playlist) {
 		}
 		list = append(list, line)
 	}
-	list = list[:len(list)-1]
+	if len(list) > 0 {
+		list = list[1 : len(list)-1]
+	}
 	playList = Playlist{
 		M3u8:     raw_m3u8,
 		List:     list,

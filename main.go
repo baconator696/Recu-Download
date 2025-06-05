@@ -90,7 +90,7 @@ func downloadConent(cfg config.Config) {
 		filename = tempSplit[len(tempSplit)-1]
 	}
 	filename = strings.ReplaceAll(filename, ".m3u8", "")
-	playList := playlist.NewFromUsername(data, filename)
+	playList := playlist.NewFromFilename(data, filename)
 	cfg.GetVideo(playList, 0)
 }
 func readme() string {

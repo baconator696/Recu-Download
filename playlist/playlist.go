@@ -16,10 +16,10 @@ func New(raw_m3u8 []byte, url string) (playList Playlist, err error) {
 	if err != nil {
 		return playList, err
 	}
-	playList = NewFromUsername(raw_m3u8, filename)
+	playList = NewFromFilename(raw_m3u8, filename)
 	return
 }
-func NewFromUsername(raw_m3u8 []byte, filename string) (playList Playlist) {
+func NewFromFilename(raw_m3u8 []byte, filename string) (playList Playlist) {
 	playlistLines := strings.Split(string(raw_m3u8), "\n")
 	list := make([]string, 0, len(playlistLines)/2)
 	for _, line := range playlistLines {

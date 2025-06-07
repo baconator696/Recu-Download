@@ -151,8 +151,10 @@ Usage: `
 if "playlist" is used, only the .m3u8 playlist file will be
 	downloaded, specifiying the playlist location will
 	download the contents of the playlist
-if "series" is used, the program will download both the videos
-	in series`
+if "series" is used, the program will download all the videos
+	in series
+if "hybrid is used, the program will download sequentially from
+	each server but in parallel from different servers`
 	return string1 + path + string2
 }
 func init() {

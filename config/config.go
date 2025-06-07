@@ -22,7 +22,7 @@ type Config struct {
 }
 
 // Gets Playlist
-func (config Config) GetPlaylist(urlAny any) (playList playlist.Playlist) {
+func (config Config) GetPlaylist(urlAny any, jsonLoc int) (playList playlist.Playlist) {
 	defer func() {
 		r := recover()
 		if r != nil {
@@ -42,7 +42,7 @@ func (config Config) GetPlaylist(urlAny any) (playList playlist.Playlist) {
 	default:
 		panic("url is incorrect type")
 	}
-	playList, status, err := recu.Parse(url, config.Header)
+	playList, status, err := recu.Parse(url, config.Header, jsonLoc)
 	switch status {
 	case "cloudflare":
 		fmt.Fprintf(os.Stderr, "%s\nCloudflare Blocked: Failed on url: %v\n", err.Error(), url)
@@ -57,7 +57,7 @@ func (config Config) GetPlaylist(urlAny any) (playList playlist.Playlist) {
 }
 
 // Saves video to working directory
-func (config *Config) GetVideo(playList playlist.Playlist, index int) (fail int) {
+func (config *Config) GetVideo(playList playlist.Playlist) (fail int) {
 	defer func() {
 		r := recover()
 		if r != nil {
@@ -69,7 +69,7 @@ func (config *Config) GetVideo(playList playlist.Playlist, index int) (fail int)
 	var duration []float64 = nil
 	var num int = 0
 	// parse list of urls in json
-	switch t := config.Urls[index].(type) {
+	switch t := config.Urls[playList.JsonLoc].(type) {
 	case string:
 		url = t
 	case []any:
@@ -103,23 +103,23 @@ func (config *Config) GetVideo(playList playlist.Playlist, index int) (fail int)
 	}
 	// if fail, save state to json
 	fmt.Fprintf(os.Stderr, "Download Failed at line: %v\n", fail)
-	switch t := config.Urls[index].(type) {
+	switch t := config.Urls[playList.JsonLoc].(type) {
 	case string:
-		config.Urls[index] = []any{t, fail}
+		config.Urls[playList.JsonLoc] = []any{t, fail}
 	case []any:
 		switch len(t) {
 		case 1:
 			t = append(t, fail)
-			config.Urls[index] = t
+			config.Urls[playList.JsonLoc] = t
 		case 2:
 			t[1] = fail
-			config.Urls[index] = t
+			config.Urls[playList.JsonLoc] = t
 		case 4:
 			t = append(t, fail)
-			config.Urls[index] = t
+			config.Urls[playList.JsonLoc] = t
 		case 5:
 			t[4] = fail
-			config.Urls[index] = t
+			config.Urls[playList.JsonLoc] = t
 		}
 	}
 	err := config.Save()

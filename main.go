@@ -19,17 +19,17 @@ var tag string
 func parallelService(cfg config.Config) {
 	playlists := make([]playlist.Playlist, len(cfg.Urls))
 	for i, link := range cfg.Urls {
-		playlists[i] = cfg.GetPlaylist(link)
+		playlists[i] = cfg.GetPlaylist(link, i)
 	}
 	var wg sync.WaitGroup
-	for i, playList := range playlists {
+	for _, playList := range playlists {
 		if playList.IsNil() {
 			continue
 		}
 		wg.Add(1)
-		go func(playList playlist.Playlist, i int) {
+		go func(playList playlist.Playlist) {
 			defer wg.Done()
-			if cfg.GetVideo(playList, i) == 0 {
+			if cfg.GetVideo(playList) == 0 {
 				return
 			}
 			err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
@@ -37,22 +37,62 @@ func parallelService(cfg config.Config) {
 				fmt.Println(playList.M3u8)
 				fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 			}
-		}(playList, i)
+		}(playList)
 		time.Sleep(time.Second)
+	}
+	wg.Wait()
+}
+
+func hybridService(cfg config.Config) {
+	playlists := make([]playlist.Playlist, len(cfg.Urls))
+	for i, link := range cfg.Urls {
+		playlists[i] = cfg.GetPlaylist(link, i)
+	}
+	servers := make(map[string][]playlist.Playlist)
+	// organize playlist by server
+	for _, playList := range playlists {
+		server, err := playList.PlaylistOrigin()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			continue
+		}
+		if servers[server] == nil {
+			servers[server] = make([]playlist.Playlist, 0)
+		}
+		servers[server] = append(servers[server], playList)
+	}
+	var wg sync.WaitGroup
+	for _, playlists := range servers {
+		wg.Add(1)
+		go func(playlists []playlist.Playlist) {
+			for _, playList := range playlists {
+				if playList.IsNil() {
+					continue
+				}
+				if cfg.GetVideo(playList) == 0 {
+					continue
+				}
+				err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
+				if err != nil {
+					fmt.Println(playList.M3u8)
+					fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
+				}
+			}
+		}(playlists)
 	}
 	wg.Wait()
 }
 func serialService(cfg config.Config) {
 	playlists := make([]playlist.Playlist, len(cfg.Urls))
 	for i, link := range cfg.Urls {
-		playlists[i] = cfg.GetPlaylist(link)
+		playlists[i] = cfg.GetPlaylist(link, i)
 	}
 	for i, playList := range playlists {
 		if playList.IsNil() {
 			continue
 		}
 		fmt.Printf("%d/%d:\n", i+1, len(playlists))
-		if cfg.GetVideo(playList, i) == 0 {
+		if cfg.GetVideo(playList) == 0 {
 			continue
 		}
 		err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
@@ -63,8 +103,8 @@ func serialService(cfg config.Config) {
 	}
 }
 func downloadPlaylist(cfg config.Config) {
-	for _, v := range cfg.Urls {
-		playList := cfg.GetPlaylist(v)
+	for i, v := range cfg.Urls {
+		playList := cfg.GetPlaylist(v, i)
 		if playList.IsNil() {
 			continue
 		}
@@ -90,8 +130,8 @@ func downloadConent(cfg config.Config) {
 		filename = tempSplit[len(tempSplit)-1]
 	}
 	filename = strings.ReplaceAll(filename, ".m3u8", "")
-	playList := playlist.NewFromFilename(data, filename)
-	cfg.GetVideo(playList, 0)
+	playList := playlist.NewFromFilename(data, filename, 0)
+	cfg.GetVideo(playList)
 }
 func readme() string {
 	path := tools.Argparser(0)
@@ -174,6 +214,8 @@ func main() {
 		}
 	case "series":
 		serialService(cfg)
+	case "hybrid":
+		hybridService(cfg)
 	//case "parse":
 	//	err := config.ParseHtml(tools.Argparser(3))
 	//	if err != nil {

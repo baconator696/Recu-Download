@@ -10,7 +10,7 @@ import (
 )
 
 // Takes recurbate video URL and returns playlist raw data and returns file name {ts-urls, filename, "done", error}
-func Parse(siteUrl string, header map[string]string) (playList playlist.Playlist, errorType string, err error) {
+func Parse(siteUrl string, header map[string]string, jsonLoc int) (playList playlist.Playlist, errorType string, err error) {
 	// http request
 	downloadLoop := func(url string, timeout int, header map[string]string) (data []byte, err error) {
 		retry := 0
@@ -124,7 +124,7 @@ func Parse(siteUrl string, header map[string]string) (playList playlist.Playlist
 			playlistLines[i] = prefix + line
 		}
 	}
-	playList, err = playlist.New([]byte(strings.Join(playlistLines, "\n")), playlistUrl)
+	playList, err = playlist.New([]byte(strings.Join(playlistLines, "\n")), playlistUrl, jsonLoc)
 	if err != nil {
 		errorType = "panic"
 	}
@@ -137,6 +137,9 @@ func Mux(playList playlist.Playlist, header map[string]string, restartIndex int,
 	var err error
 	var file *os.File
 	var avgdur, avgsize tools.AvgBuffer
+	if tools.Abort {
+		return 0
+	}
 	restarted := false
 	if restartIndex != 0 {
 		restarted = true
@@ -187,9 +190,13 @@ func Mux(playList playlist.Playlist, header map[string]string, restartIndex int,
 	}
 	endIndex = int(float64(playList.Len()) * durationPercent[1] / 100)
 	for i, tsLink := range playList.List[startIndex:endIndex] {
+		if tools.Abort {
+			fmt.Println("\naborting...")
+			return i
+		}
 		i := i + startIndex
 		startTime := time.Now()
-		err := downloadLoop(&data,tsLink, header, 10, 5)
+		err := downloadLoop(&data, tsLink, header, 10, 5)
 		if err != nil {
 			fmt.Println()
 			fmt.Fprintf(os.Stderr, "Error: %v\n", tools.ANSIColor(err, 2))
@@ -210,10 +217,6 @@ func Mux(playList playlist.Playlist, header map[string]string, restartIndex int,
 		eta := getavgdur * ((float64(playList.Len()) * durationPercent[1] / 100) - float64(i))
 		percent := float64(i) / float64(playList.Len()) * 100
 		fmt.Printf("\n\033[A\033[2KDownloading: %s\tRemaining: %s\t%s", tools.ANSIColor(fmt.Sprintf("%.1f%%", percent), 33), tools.FormatMinutes(eta), tools.FormatBytesPerSecond(speedSecs))
-		if tools.Abort {
-			fmt.Println("\naborting...")
-			return i
-		}
 	}
 	fmt.Println()
 	return 0

@@ -65,6 +65,7 @@ func hybridService(cfg config.Config) {
 	for _, playlists := range servers {
 		wg.Add(1)
 		go func(playlists []playlist.Playlist) {
+			defer wg.Done()
 			for _, playList := range playlists {
 				if playList.IsNil() {
 					continue

@@ -190,11 +190,11 @@ func Mux(playList playlist.Playlist, header map[string]string, restartIndex int,
 	}
 	endIndex = int(float64(playList.Len()) * durationPercent[1] / 100)
 	for i, tsLink := range playList.List[startIndex:endIndex] {
+		i := i + startIndex
 		if tools.Abort {
 			fmt.Println("\naborting...")
 			return i
 		}
-		i := i + startIndex
 		startTime := time.Now()
 		err := downloadLoop(&data, tsLink, header, 10, 5)
 		if err != nil {

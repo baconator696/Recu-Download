@@ -110,6 +110,12 @@ var (
 
 // determine check parameter for playlist fragment link
 func appendCheck(url string) (appended string, err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			err = fmt.Errorf("appendCheck Panic:\nurl:%s\n%v", appended, r)
+		}
+	}()
 	RexegtsFragCheckMutex.Lock()
 	if RegexUID == nil {
 		RegexUID = regexp.MustCompile("uid=([^&]*)")

@@ -16,33 +16,6 @@ import (
 
 var tag string
 
-func parallelService(cfg config.Config) {
-	playlists := make([]playlist.Playlist, len(cfg.Urls))
-	for i, link := range cfg.Urls {
-		playlists[i] = cfg.GetPlaylist(link, i)
-	}
-	var wg sync.WaitGroup
-	for _, playList := range playlists {
-		if playList.IsNil() {
-			continue
-		}
-		wg.Add(1)
-		go func(playList playlist.Playlist) {
-			defer wg.Done()
-			if cfg.GetVideo(playList) == nil {
-				return
-			}
-			err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
-			if err != nil {
-				fmt.Println(playList.M3u8)
-				fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
-			}
-		}(playList)
-		time.Sleep(time.Second)
-	}
-	wg.Wait()
-}
-
 func hybridService(cfg config.Config) {
 	playlists := make([]playlist.Playlist, len(cfg.Urls))
 	for i, link := range cfg.Urls {
@@ -80,6 +53,7 @@ func hybridService(cfg config.Config) {
 				}
 			}
 		}(playlists)
+		time.Sleep(time.Second)
 	}
 	wg.Wait()
 }
@@ -153,9 +127,7 @@ if "playlist" is used, only the .m3u8 playlist file will be
 	downloaded, specifiying the playlist location will
 	download the contents of the playlist
 if "series" is used, the program will download all the videos
-	in series
-if "hybrid is used, the program will download sequentially from
-	each server but in parallel from different servers`
+	in series`
 	return string1 + path + string2
 }
 func init() {
@@ -219,8 +191,6 @@ func main() {
 		}
 	case "series":
 		serialService(cfg)
-	case "hybrid":
-		hybridService(cfg)
 	case "parse":
 		err := cfg.ParseHtml(tools.Argparser(3))
 		if err != nil {
@@ -229,6 +199,6 @@ func main() {
 			fmt.Println("Parsed HTML Successfully")
 		}
 	default:
-		parallelService(cfg)
+		hybridService(cfg)
 	}
 }

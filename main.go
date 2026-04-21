@@ -48,7 +48,7 @@ func hybridService(cfg config.Config) {
 				}
 				err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
 				if err != nil {
-					fmt.Println(playList.M3u8)
+					fmt.Println(string(playList.M3u8))
 					fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 				}
 			}

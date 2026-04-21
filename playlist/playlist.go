@@ -14,7 +14,17 @@ type Playlist struct {
 	List     []string
 	Filename string
 }
+type PlaylistSlice []Playlist
 
+func (p PlaylistSlice) Len() int {
+	return len(p)
+}
+func (p PlaylistSlice) Less(prior, latter int) bool {
+	return len(p[prior].List) < len(p[latter].List)
+}
+func (p PlaylistSlice) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
 func New(raw_m3u8 []byte, url string, jsonLoc int) (playList Playlist, err error) {
 	filename, err := parsePlaylistUrl(url)
 	if err != nil {

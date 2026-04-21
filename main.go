@@ -8,6 +8,7 @@ import (
 	"recurbate/config"
 	"recurbate/playlist"
 	"recurbate/tools"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -21,21 +22,25 @@ func hybridService(cfg config.Config) {
 	for i, link := range cfg.Urls {
 		playlists[i] = cfg.GetPlaylist(link, i)
 	}
-	servers := make(map[string][]playlist.Playlist)
+	serversMap := make(map[string]playlist.PlaylistSlice)
 	// organize playlist by server
 	for _, playList := range playlists {
-		server, err := playList.PlaylistOrigin()
+		domainName, err := playList.PlaylistOrigin()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			continue
 		}
-		if servers[server] == nil {
-			servers[server] = make([]playlist.Playlist, 0)
+		if serversMap[domainName] == nil {
+			serversMap[domainName] = make(playlist.PlaylistSlice, 0)
 		}
-		servers[server] = append(servers[server], playList)
+		serversMap[domainName] = append(serversMap[domainName], playList)
+	}
+	// makes shortest playlists go first
+	for _, playlists := range serversMap {
+		sort.Sort(playlists)
 	}
 	var wg sync.WaitGroup
-	for _, playlists := range servers {
+	for _, playlists := range serversMap {
 		wg.Add(1)
 		go func(playlists []playlist.Playlist) {
 			defer wg.Done()

@@ -63,10 +63,11 @@ func hybridService(cfg config.Config) {
 	wg.Wait()
 }
 func serialService(cfg config.Config) {
-	playlists := make([]playlist.Playlist, len(cfg.Urls))
+	playlists := make(playlist.PlaylistSlice, len(cfg.Urls))
 	for i, link := range cfg.Urls {
 		playlists[i] = cfg.GetPlaylist(link, i)
 	}
+	sort.Sort(playlists)
 	for i, playList := range playlists {
 		if playList.IsNil() {
 			continue
@@ -77,7 +78,7 @@ func serialService(cfg config.Config) {
 		}
 		err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
 		if err != nil {
-			fmt.Println(playList.M3u8)
+			fmt.Println(string(playList.M3u8))
 			fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
 		}
 	}

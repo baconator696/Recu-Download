@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"recurbate/config"
+	"recurbate/maintenance"
 	"recurbate/playlist"
 	"recurbate/tools"
 	"sort"
@@ -150,7 +151,7 @@ func init() {
 }
 func main() {
 	fmt.Printf("Recu %v\n", tag)
-	tools.CheckUpdate(tag)
+	maintenance.CheckUpdate(tag)
 	if tools.Argparser(1) == "--help" {
 		fmt.Println(readme())
 		return

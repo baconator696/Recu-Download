@@ -44,24 +44,16 @@ func regexVideoIDMatch(text string) (string, error) {
 }
 
 func parseDownloadLoop(url string, timeout int, header map[string]string) (data []byte, err error) {
-	retry := 0
-	for {
-		var status int
-		data, status, err = tools.Request(url, timeout, header, nil, "GET")
-		if err == nil && status == 200 {
-			break
-		}
+	var ch chan error
+	var wg sync.WaitGroup
+	go func() {
+		defer wg.Done()
+		data, _, err = tools.RequestRetry(url, timeout, ch, []int{200}, 30, time.Millisecond*200, timeout, header, nil, "GET")
+	}()
+	for range ch {
 		fmt.Printf("Failed Retrying...\033[18D")
-		if retry > 5 {
-			if err == nil {
-				err = fmt.Errorf("%s, status code: %d", tools.ANSIColor(string(data), 2), status)
-			}
-			return
-		}
-		retry++
-		timeout += 30
-		time.Sleep(time.Millisecond * 200)
 	}
+	wg.Wait()
 	return
 }
 

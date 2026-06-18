@@ -1,86 +1,13 @@
 package tools
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 var Abort bool
-
-// Check for update
-func CheckUpdate(currentTag string) (err error) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			err = fmt.Errorf("%v", r)
-		}
-	}()
-	respJson, status, err := Request("https://api.github.com/repos/baconator696/Recu-Download/releases/latest", 2, nil, nil, "GET")
-	if err != nil {
-		return
-	} else if status != 200 {
-		return fmt.Errorf("status: %d, %s", status, string(respJson))
-	}
-	var resp any
-	err = json.Unmarshal(respJson, &resp)
-	if err != nil {
-		return
-	}
-	if resp.(map[string]any)["prerelease"].(bool) {
-		return
-	}
-	newTag := resp.(map[string]any)["tag_name"].(string)
-	newTag = strings.ReplaceAll(newTag, "v", "")
-	newNums := strings.Split(newTag, ".")
-	currentTag = strings.ReplaceAll(currentTag, "v", "")
-	currentNums := strings.Split(currentTag, ".")
-	for i, v := range newNums {
-		current, err := strconv.Atoi(currentNums[i])
-		if err != nil {
-			continue
-		}
-		new, err := strconv.Atoi(v)
-		if err != nil {
-			continue
-		}
-		if new > current {
-			fmt.Printf("New Update Available: v%s\n", newTag)
-			fmt.Printf("%s\n%s\n", resp.(map[string]any)["html_url"].(string), ANSIColor(resp.(map[string]any)["body"].(string), 2))
-			return nil
-		}
-	}
-	return nil
-}
-
-// Returns the raw data from the URL
-func Request(url string, timeout int, header map[string]string, body []byte, Type string) ([]byte, int, error) {
-	req, err := http.NewRequest(Type, url, strings.NewReader(string(body)))
-	if err != nil {
-		return nil, 0, fmt.Errorf("http.NewRequest:%v", err)
-	}
-	for key, value := range header {
-		req.Header.Set(key, value)
-	}
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
-	}
-	data, err := client.Do(req)
-	if err != nil {
-		return nil, 0, fmt.Errorf("client.Do:%v", err)
-	}
-	defer data.Body.Close()
-	databytes, err := io.ReadAll(data.Body)
-	if err != nil {
-		return nil, data.StatusCode, fmt.Errorf("io.ReadAll:%v", err)
-	}
-	return databytes, data.StatusCode, nil
-}
 
 // Parses executatables arguments to prevent runtime errors
 func Argparser(n int) string {
@@ -188,37 +115,6 @@ func PercentPrase(times []any) []float64 {
 	start = float64(secs[0]) / float64(secs[2]) * 100
 	end = float64(secs[1]) / float64(secs[2]) * 100
 	return []float64{start, end}
-}
-
-// Defines the Average Buffer
-type AvgBuffer struct {
-	data []float64
-	pos  int
-	size int
-}
-
-// Returns the Average of all the floats in the buffer
-func (buff AvgBuffer) Average() (avg float64) {
-	for _, value := range buff.data {
-		avg += value
-	}
-	avg /= float64(len(buff.data))
-	return
-}
-
-// Adds a number to the average buffer
-func (buff *AvgBuffer) Add(add float64) {
-	if buff.size <= 0 {
-		buff.size = 25
-	}
-	if buff.pos < 0 || buff.pos >= buff.size {
-		buff.pos = 0
-	}
-	for buff.pos >= len(buff.data) {
-		buff.data = append(buff.data, add)
-	}
-	buff.data[buff.pos] = add
-	buff.pos++
 }
 
 // Converts int in Seconds to a formated string

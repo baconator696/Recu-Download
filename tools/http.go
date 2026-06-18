@@ -46,7 +46,7 @@ outerLoop:
 	for {
 		data, statusCode, err = Request(url, timeout, header, body, Type)
 		if err == nil {
-			for successStatusCode := range successStatusCode {
+			for _, successStatusCode := range successStatusCode {
 				if successStatusCode == statusCode {
 					break outerLoop
 				}

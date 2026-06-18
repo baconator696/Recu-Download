@@ -6,8 +6,6 @@ import (
 	"recurbate/playlist"
 	"recurbate/tools"
 	"regexp"
-	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,8 +42,9 @@ func regexVideoIDMatch(text string) (string, error) {
 }
 
 func parseDownloadLoop(url string, timeout int, header map[string]string) (data []byte, err error) {
-	var ch chan error
+	ch := make(chan error)
 	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		data, _, err = tools.RequestRetry(url, timeout, ch, []int{200}, 30, time.Millisecond*200, timeout, header, nil, "GET")
@@ -145,21 +144,20 @@ func Parse(siteUrl string, header map[string]string, jsonLoc, maxRes int) (playL
 	return
 }
 
-// If playlist contains list of resolutions, return the maximum resolution playlist
+// If playlist contains list of resolutions, return the maximum Resolution playlist
 func resolution(playlistData []byte, prefix string, header map[string]string, maxRes int) ([]byte, error) {
 	playlistRef := string(playlistData)
 	if strings.Contains(playlistRef, "EXT-X-STREAM-INF") {
-		sortedSet, resolutions := organizeResolutions(playlistRef, prefix)
+		TEMP := playlist.ParseResolutionPlaylistLinks(playlistRef, prefix)
 		var playlistUrl string
-		for i := len(sortedSet) - 1; i >= 0; i-- {
-			if sortedSet[i] <= maxRes {
-				playlistUrl = resolutions[sortedSet[i]]
-				break
-			}
-		}
+		TEMP.DescendLessOrEqual(playlist.IntStrN(maxRes), func(item playlist.IntStr) bool {
+			playlistUrl = item.Get()
+			return false
+		})
 		if playlistUrl == "" {
 			println("The given Max Resolution isn't available, using maximum")
-			playlistUrl = resolutions[6969]
+			max, _ := TEMP.Max()
+			playlistUrl = max.Get()
 		}
 		fmt.Printf("\rDownloading Playlist: ")
 		var err error
@@ -170,58 +168,6 @@ func resolution(playlistData []byte, prefix string, header map[string]string, ma
 		fmt.Printf("\r\033[2KDownloading Playlist: Complete\n")
 	}
 	return playlistData, nil
-}
-
-// collects all resolution playlists, grouped by frame heights
-func organizeResolutions(playlistRef, prefix string) (sortedSet []int, resolutions map[int]string) {
-	playlistLines := strings.Split(playlistRef, "\n")
-	resolutions = make(map[int]string)
-	for i := 0; i < len(playlistLines)-1; i++ {
-		if len(playlistLines[i]) >= 1 && playlistLines[i][0] == '#' {
-			if resolutions[6969] == "" && strings.Contains(playlistLines[i], "NAME=max") {
-				playlistUrl := playlistLines[i+1]
-				if !strings.Contains(playlistUrl, prefix) {
-					playlistUrl = prefix + playlistUrl
-				}
-				resolutions[6969] = playlistUrl
-			}
-			res, err := regexResolutionMatch(playlistLines[i])
-			if err != nil {
-				continue
-			}
-			playlistUrl := playlistLines[i+1]
-			if !strings.Contains(playlistUrl, prefix) {
-				playlistUrl = prefix + playlistUrl
-			}
-			resolutions[res] = playlistUrl
-		}
-	}
-	sortedSet = make([]int, len(resolutions))
-	for i := range resolutions {
-		sortedSet = append(sortedSet, i)
-	}
-	slices.Sort(sortedSet)
-	return
-}
-
-var (
-	regexResolution      *regexp.Regexp
-	regexResolutionMutex sync.Mutex
-)
-
-// returns the frame height of the given playlist string
-func regexResolutionMatch(text string) (int, error) {
-	regexResolutionMutex.Lock()
-	if regexResolution == nil {
-		regexResolution = regexp.MustCompile(`#EXT-X-STREAM-INF:[\w=,]*?RESOLUTION=[\d]+x([\d]+)`)
-	}
-	regexResolutionMutex.Unlock()
-	matches := regexResolution.FindStringSubmatch(text)
-	if len(matches) > 1 {
-		i, err := strconv.Atoi(matches[1])
-		return i, err
-	}
-	return 0, fmt.Errorf("no match found")
 }
 
 // Muxes the transport streams and saves it to a file

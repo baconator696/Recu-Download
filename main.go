@@ -7,114 +7,15 @@ import (
 	"os/signal"
 	"recurbate/config"
 	"recurbate/maintenance"
-	"recurbate/playlist"
+	"recurbate/recu"
 	"recurbate/tools"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 )
 
 var tag string
 
-func hybridService(cfg config.Config) {
-	playlists := make([]playlist.Playlist, len(cfg.Urls))
-	for i, link := range cfg.Urls {
-		playlists[i] = cfg.GetPlaylist(link, i)
-	}
-	serversMap := make(map[string]playlist.PlaylistSlice)
-	// organize playlist by server
-	for _, playList := range playlists {
-		domainName, err := playList.PlaylistOrigin()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			continue
-		}
-		if serversMap[domainName] == nil {
-			serversMap[domainName] = make(playlist.PlaylistSlice, 0)
-		}
-		serversMap[domainName] = append(serversMap[domainName], playList)
-	}
-	// makes shortest playlists go first
-	for _, playlists := range serversMap {
-		sort.Sort(playlists)
-	}
-	var wg sync.WaitGroup
-	for _, playlists := range serversMap {
-		wg.Add(1)
-		go func(playlists []playlist.Playlist) {
-			defer wg.Done()
-			for _, playList := range playlists {
-				if playList.IsNil() {
-					continue
-				}
-				if cfg.GetVideo(playList) == nil {
-					continue
-				}
-				err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
-				if err != nil {
-					fmt.Println(string(playList.M3u8))
-					fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
-				}
-			}
-		}(playlists)
-		time.Sleep(time.Second)
-	}
-	wg.Wait()
-}
-func serialService(cfg config.Config) {
-	playlists := make(playlist.PlaylistSlice, len(cfg.Urls))
-	for i, link := range cfg.Urls {
-		playlists[i] = cfg.GetPlaylist(link, i)
-	}
-	sort.Sort(playlists)
-	for i, playList := range playlists {
-		if playList.IsNil() {
-			continue
-		}
-		fmt.Printf("%d/%d:\n", i+1, len(playlists))
-		if cfg.GetVideo(playList) == nil {
-			continue
-		}
-		err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
-		if err != nil {
-			fmt.Println(string(playList.M3u8))
-			fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
-		}
-	}
-}
-func downloadPlaylist(cfg config.Config) {
-	for i, v := range cfg.Urls {
-		playList := cfg.GetPlaylist(v, i)
-		if playList.IsNil() {
-			continue
-		}
-		err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
-		if err != nil {
-			fmt.Println(playList.M3u8)
-			fmt.Fprintf(os.Stderr, "Failed to write playlist data: %v\n", err)
-			continue
-		}
-		fmt.Printf("Completed: %v:%v\n", playList.Filename, v)
-	}
-}
-func downloadConent(cfg config.Config) {
-	playlistPath := tools.Argparser(3)
-	data, err := os.ReadFile(playlistPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to read playlist: %v\n", err)
-		return
-	}
-	filename := playlistPath
-	if strings.Contains(filename, string(os.PathSeparator)) {
-		tempSplit := strings.Split(filename, string(os.PathSeparator))
-		filename = tempSplit[len(tempSplit)-1]
-	}
-	filename = strings.ReplaceAll(filename, ".m3u8", "")
-	playList := playlist.NewFromFilename(data, filename, 0)
-	cfg.GetVideo(playList)
-}
 func readme() string {
 	path := tools.Argparser(0)
 	if strings.Contains(path, string(os.PathSeparator)) {
@@ -131,8 +32,7 @@ Usage: `
 	string2 := ` <json location> playlist|series <playlist.m3u8>
 
 if "playlist" is used, only the .m3u8 playlist file will be
-	downloaded, specifiying the playlist location will
-	download the contents of the playlist
+	downloaded, if you wanted to download with external tool
 if "series" is used, the program will download all the videos
 	in series`
 	return string1 + path + string2
@@ -184,28 +84,58 @@ func main() {
 			return
 		}
 	}
+	var switchFunc func(self config.Config, ch chan error, statusCh chan recu.Status)
 	switch tools.Argparser(2) {
 	case "playlist":
-		if tools.Argparser(3) != "" {
-			_, err := os.Stat(tools.Argparser(3))
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(4)
-			}
-			downloadConent(cfg)
-		} else {
-			downloadPlaylist(cfg)
-		}
+		switchFunc = config.Config.DownloadPlaylist
+		return
 	case "series":
-		serialService(cfg)
+		switchFunc = config.Config.SerialService
 	case "parse":
 		err := cfg.ParseHtml(tools.Argparser(3))
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 		} else {
 			fmt.Println("Parsed HTML Successfully")
 		}
+		return
 	default:
-		hybridService(cfg)
+		switchFunc = config.Config.HybridService
+	}
+	errCh := make(chan error)
+	statusCh := make(chan recu.Status)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		defer close(errCh)
+		defer close(statusCh)
+		switchFunc(cfg, errCh, statusCh)
+	}()
+	// std out
+	go func() {
+		defer wg.Done()
+		recuCLI(statusCh)
+	}()
+	for msg := range errCh {
+		fmt.Fprintln(os.Stderr, msg)
+	}
+	wg.Wait()
+}
+
+func recuCLI(statusCh chan recu.Status) {
+	for msg := range statusCh {
+		switch msg {
+		case recu.FailRetry:
+			fmt.Printf("Failed Retrying...\n")
+		case recu.DownloadHTML:
+			fmt.Printf("\rDownloading HTML: ")
+		case recu.GetPlaylist:
+			fmt.Printf("\rDownloading Playlists: ")
+		case recu.GetPlaylistUrl:
+			fmt.Printf("\rGetting Link to Playlist: ")
+		case recu.CompleteLastAction:
+			fmt.Printf("Complete\n")
+		}
 	}
 }

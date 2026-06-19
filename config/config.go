@@ -12,7 +12,6 @@ import (
 	"sync"
 )
 
-// mutex
 var (
 	mtx sync.Mutex
 )
@@ -25,24 +24,78 @@ type Config struct {
 }
 
 // Gets Playlist
-func (config Config) GetPlaylist(urlAny any, jsonLoc int) (playList playlist.Playlist) {
+func (config Config) GetPlaylist(errCh chan error, statusCh chan recu.Status, urlAny any, jsonLoc int) (playList playlist.Playlist) {
 	url, _, _, err, complete := parseUrl(urlAny)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "GetPlaylist: urls are in wrong format, error: %v\n", err)
+		errCh <- fmt.Errorf("GetPlaylist: urls are in wrong format, error: %v\n", err)
 	}
-	if complete {
+	if complete { // url already downloaded
 		return
 	}
-	playList, status, err := recu.Parse(url, config.Header, jsonLoc, config.parseMaxRes())
-	switch status {
-	case "cloudflare":
-		fmt.Fprintf(os.Stderr, "%s\nCloudflare Blocked: Failed on url: %v\n", err.Error(), url)
-	case "cookie":
-		fmt.Fprintf(os.Stderr, "Please Log in: Failed on url: %v\n", url)
-	case "wait":
-		fmt.Fprintf(os.Stderr, "Daily View Used: Failed on url: %v\n", url)
-	case "panic":
-		fmt.Fprintf(os.Stderr, "Error: %s\nFailed on url: %v\n", err.Error(), url)
+	playList, status, err := recu.Parse(errCh, statusCh, url, config.Header, jsonLoc, config.parseMaxRes())
+	if err != nil {
+		switch status {
+		case recu.CLOUDFLARE:
+			errCh <- fmt.Errorf("%s\nCloudflare Blocked: Failed on url: %v\n", err.Error(), url)
+		case recu.COOKIE:
+			errCh <- fmt.Errorf("Please Log in: Failed on url: %s\n", url)
+		case recu.WAIT:
+			errCh <- fmt.Errorf("Daily View Used: Failed on url: %s\n", url)
+		case recu.OTHER:
+			errCh <- fmt.Errorf("Error: %s\nFailed on url: %s\n", err.Error(), url)
+		}
+	}
+	return
+}
+
+// Parse URL object from json
+func parseUrl(url any) (urlString string, duration []float64, startIndex int, err error, complete bool) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			err = fmt.Errorf("GetVideo: urls are in wrong format, error: %v", r)
+		}
+	}()
+	switch t := url.(type) {
+	case string:
+		urlString = t
+	case []any:
+		switch len(t) {
+		case 1:
+			urlString = t[0].(string)
+		case 2:
+			urlString = t[0].(string)
+			str, ok := t[1].(string)
+			if ok {
+				if str == "COMPLETE" {
+					complete = true
+				}
+			} else {
+				startIndex = int(t[1].(float64))
+			}
+		case 4:
+			urlString = t[0].(string)
+			duration = tools.PercentPrase(t[1:])
+		case 5:
+			urlString = t[0].(string)
+			duration = tools.PercentPrase(t[1:4])
+			str, ok := t[4].(string)
+			if ok {
+				if str == "COMPLETE" {
+					complete = true
+				}
+			} else {
+				startIndex = int(t[4].(float64))
+			}
+
+		default:
+			err = fmt.Errorf("incorrect length of url array")
+		}
+	default:
+		err = fmt.Errorf("url is incorrect type")
+	}
+	if duration == nil {
+		duration = []float64{0, 100}
 	}
 	return
 }
@@ -104,58 +157,6 @@ func modifyUrl(url *any, lastIndex any) {
 			*url = t
 		}
 	}
-}
-
-// Parse URL object from json
-func parseUrl(url any) (urlString string, duration []float64, startIndex int, err error, complete bool) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			err = fmt.Errorf("GetVideo: urls are in wrong format, error: %v", r)
-		}
-	}()
-	switch t := url.(type) {
-	case string:
-		urlString = t
-	case []any:
-		switch len(t) {
-		case 1:
-			urlString = t[0].(string)
-		case 2:
-			urlString = t[0].(string)
-			str, ok := t[1].(string)
-			if ok {
-				if str == "COMPLETE" {
-					complete = true
-				}
-			} else {
-				startIndex = int(t[1].(float64))
-			}
-		case 4:
-			urlString = t[0].(string)
-			duration = tools.PercentPrase(t[1:])
-		case 5:
-			urlString = t[0].(string)
-			duration = tools.PercentPrase(t[1:4])
-			str, ok := t[4].(string)
-			if ok {
-				if str == "COMPLETE" {
-					complete = true
-				}
-			} else {
-				startIndex = int(t[4].(float64))
-			}
-
-		default:
-			err = fmt.Errorf("incorrect length of url array")
-		}
-	default:
-		err = fmt.Errorf("url is incorrect type")
-	}
-	if duration == nil {
-		duration = []float64{0, 100}
-	}
-	return
 }
 
 // Returns default templet

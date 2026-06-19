@@ -2,7 +2,6 @@ package playlist
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -25,15 +24,12 @@ func (p PlaylistSlice) Less(prior, latter int) bool {
 func (p PlaylistSlice) Swap(i, j int) {
 	p[i], p[j] = p[j], p[i]
 }
-func New(raw_m3u8 []byte, url string, jsonLoc int) (playList Playlist, err error) {
-	filename, err := parsePlaylistUrl(url)
+
+func New(errCh chan error, raw_m3u8 []byte, url string, jsonLoc int) (playList Playlist, err error) {
+	filename, err := createFilename(url)
 	if err != nil {
-		return playList, err
+		return
 	}
-	playList = NewFromFilename(raw_m3u8, filename, jsonLoc)
-	return
-}
-func NewFromFilename(raw_m3u8 []byte, filename string, jsonLoc int) (playList Playlist) {
 	playlistLines := strings.Split(string(raw_m3u8), "\n")
 	list := make([]string, 0, len(playlistLines)/2)
 	for _, line := range playlistLines {
@@ -42,15 +38,14 @@ func NewFromFilename(raw_m3u8 []byte, filename string, jsonLoc int) (playList Pl
 		}
 		appendedCheck, err := appendCheck(line)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Issue with the TS Fragmanet check parameter creator:")
-			fmt.Fprintln(os.Stderr, err)
+			errCh <- fmt.Errorf("Issue with the TS Fragmanet check parameter creator:%v", err)
 			list = append(list, line)
 		} else {
 			list = append(list, appendedCheck)
 		}
 
 	}
-	if len(list) > 0 {
+	if len(list) >= 2 {
 		list = list[1 : len(list)-1]
 	}
 	playList = Playlist{
@@ -77,11 +72,12 @@ func (p *Playlist) PlaylistOrigin() (domain string, err error) {
 	var second int
 	last := 0
 	for x := range [3]int{} {
-		temp := strings.Index(p.List[0][last:], "/") + 1
-		if temp == 0 {
-			panic("playlist doesn't contain urls")
+		loc := strings.Index(p.List[0][last:], "/") + 1
+		if loc == 0 {
+			err = fmt.Errorf("playlist doesn't contain urls")
+			return
 		}
-		last += temp
+		last += loc
 		if x == 1 {
 			second = last
 		}
@@ -91,7 +87,7 @@ func (p *Playlist) PlaylistOrigin() (domain string, err error) {
 }
 
 // creates the filename from a given m3u8 url
-func parsePlaylistUrl(url string) (filename string, err error) {
+func createFilename(url string) (filename string, err error) {
 	urlSplit := strings.Split(url, "/")
 	if len(urlSplit) < 6 {
 		return "", fmt.Errorf("wrong url format")

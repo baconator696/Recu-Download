@@ -38,9 +38,6 @@ func RequestRetry(url string, retry int, retryState chan error,
 	successStatusCode []int, timeoutFailIncreaseInterval int, failSleepTime time.Duration,
 	timeout int, header map[string]string, body []byte, Type string) (data []byte, statusCode int, err error,
 ) {
-	if retryState != nil {
-		defer close(retryState)
-	}
 	retry_count := 0
 outerLoop:
 	for {
@@ -53,10 +50,7 @@ outerLoop:
 			}
 		}
 		if err == nil {
-			err = fmt.Errorf("%s, status code: %d", ANSIColor(ShortenString(string(data), 100), 2), statusCode)
-		}
-		if retryState != nil {
-			retryState <- err
+			retryState <- fmt.Errorf("%s, status code: %d", ANSIColor(ShortenString(string(data), 100), 2), statusCode)
 		}
 		if retry_count > retry {
 			return

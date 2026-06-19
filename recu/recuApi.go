@@ -13,6 +13,25 @@ import (
 	"time"
 )
 
+type Status int
+
+const (
+	FailRetry Status = iota
+	DownloadHTML
+	GetPlaylistUrl
+	GetPlaylist
+	CompleteLastAction
+)
+
+type errorType int
+
+const (
+	OTHER errorType = iota
+	COOKIE
+	WAIT
+	CLOUDFLARE
+)
+
 // returns token from given recu html
 func regexTokenMatch(html string, videoid string) (string, error) {
 	term := fmt.Sprintf(`%s"[\n\s]*data-token="([^"]*)"`, videoid)
@@ -43,89 +62,89 @@ func regexVideoIDMatch(text string) (string, error) {
 	return "", fmt.Errorf("video id match not found")
 }
 
-func parseDownloadLoop(url string, timeout int, header map[string]string) (data []byte, err error) {
-	ch := make(chan error)
+func parseDownloadLoop(status chan Status, url string, timeout int, header map[string]string) (data []byte, err error) {
+	retryCh := make(chan error)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		data, _, err = tools.RequestRetry(url, timeout, ch, []int{200}, 30, time.Millisecond*200, timeout, header, nil, "GET")
+		defer close(retryCh)
+		data, _, err = tools.RequestRetry(url, timeout, retryCh, []int{200}, 30, time.Millisecond*200, timeout, header, nil, "GET")
 	}()
-	for range ch {
-		fmt.Printf("Failed Retrying...\033[18D")
+	for range retryCh {
+		status <- FailRetry
 	}
 	wg.Wait()
 	return
 }
 
 // Takes recurbate video URL and returns playlist raw data and returns file name {ts-urls, filename, "done", error}
-func Parse(siteUrl string, header map[string]string, jsonLoc, maxRes int) (playList playlist.Playlist, errorType string, err error) {
+func Parse(errCh chan error, statusCh chan Status, siteUrl string, header map[string]string, jsonLoc, maxRes int) (playList playlist.Playlist, errT errorType, err error) {
 	// getting webpage
-	fmt.Printf("\rDownloading HTML: ")
-	htmldata, err := parseDownloadLoop(siteUrl, 10, tools.FormatedHeader(header, "", 1))
+	statusCh <- DownloadHTML
+	htmldata, err := parseDownloadLoop(statusCh, siteUrl, 10, tools.FormatedHeader(header, "", 1))
 	if err != nil {
-		errorType = "cloudflare"
+		errT = CLOUDFLARE
 		return
 	}
 	html := string(htmldata)
-	fmt.Printf("\r\033[2KDownloading HTML: Complete\n")
+	statusCh <- CompleteLastAction
 	// determine video ID
 	id, err := regexVideoIDMatch(siteUrl)
 	if err != nil {
-		errorType = "panic"
+		errT = OTHER
 		return
 	}
 	// determine unique page token
 	token, err := regexTokenMatch(html, id)
 	if err != nil {
-		errorType = "panic"
+		errT = OTHER
 		return
 	}
 	// parse api url
 	apiUrl := strings.Join(strings.Split(siteUrl, "/")[:3], "/") + "/api/video/" + id + "?token=" + token
 	// request api
-	fmt.Printf("\rGetting Link to Playlist: ")
-	apidata, err := parseDownloadLoop(apiUrl, 10, tools.FormatedHeader(header, siteUrl, 2))
+	statusCh <- GetPlaylistUrl
+	apidata, err := parseDownloadLoop(statusCh, apiUrl, 10, tools.FormatedHeader(header, siteUrl, 2))
 	if err != nil {
-		errorType = "panic"
+		errT = OTHER
 		return
 	}
 	api := string(apidata)
 	// continue based on response from api
-	fmt.Printf("\r\033[2KGetting Link to Playlist: Complete\n")
+	statusCh <- CompleteLastAction
 	switch api {
 	case "shall_subscribe":
-		errorType = "wait"
+		errT = WAIT
 		return
 	case "shall_signin":
-		errorType = "cookie"
+		errT = COOKIE
 		return
 	case "wrong_token":
-		errorType = "panic"
+		errT = OTHER
 		err = fmt.Errorf("wrong token")
 		return
 	}
 	// search for m3u8 link from api response
 	playlistUrl, err := tools.SearchString(api, `<source src="`, `"`)
 	if err != nil {
-		errorType = "panic"
+		errT = OTHER
 		return
 	}
 	playlistUrl = strings.ReplaceAll(playlistUrl, "amp;", "")
-	fmt.Printf("\rDownloading Playlists: ")
+	statusCh <- GetPlaylist
 	// get m3u8 playlist
-	playlistData, err := parseDownloadLoop(playlistUrl, 10, tools.FormatedHeader(header, "", 0))
+	playlistData, err := parseDownloadLoop(statusCh, playlistUrl, 10, tools.FormatedHeader(header, "", 0))
 	if err != nil {
-		errorType = "panic"
+		errT = OTHER
 		return
 	}
-	fmt.Printf("\r\033[2KDownloading Playlists: Complete\n")
 	// determine url prefix for playlist entries
 	prefix := playlistUrl[:strings.LastIndex(playlistUrl, "/")+1]
 	// if playlist contains resolution selection
-	playlistData, err = get_resolution_playlist(playlistData, prefix, header, maxRes)
+	playlistData, err = get_resolution_playlist(statusCh, playlistData, prefix, header, maxRes)
 	if err != nil {
-		errorType = "panic"
+		errT = OTHER
 		return
 	}
 	playlistRef := string(playlistData)
@@ -139,15 +158,16 @@ func Parse(siteUrl string, header map[string]string, jsonLoc, maxRes int) (playL
 			playlistLines[i] = prefix + line
 		}
 	}
-	playList, err = playlist.New([]byte(strings.Join(playlistLines, "\n")), playlistUrl, jsonLoc)
+	playList, err = playlist.New(errCh, []byte(strings.Join(playlistLines, "\n")), playlistUrl, jsonLoc)
 	if err != nil {
-		errorType = "panic"
+		errT = OTHER
 	}
+	statusCh <- CompleteLastAction
 	return
 }
 
 // If playlist contains list of resolutions, return the maximum Resolution playlist
-func get_resolution_playlist(playlistData []byte, prefix string, header map[string]string, maxRes int) ([]byte, error) {
+func get_resolution_playlist(statusCh chan Status, playlistData []byte, prefix string, header map[string]string, maxRes int) ([]byte, error) {
 	playlistRef := string(playlistData)
 	if strings.Contains(playlistRef, "EXT-X-STREAM-INF") {
 		playlists, err := resolution.New(playlistRef, prefix)
@@ -155,12 +175,10 @@ func get_resolution_playlist(playlistData []byte, prefix string, header map[stri
 			return nil, err
 		}
 		playlistUrl := playlists.Max(maxRes)
-		fmt.Printf("\rDownloading Playlist: ")
-		playlistData, err = parseDownloadLoop(playlistUrl, 10, tools.FormatedHeader(header, "", 0))
+		playlistData, err = parseDownloadLoop(statusCh, playlistUrl, 10, tools.FormatedHeader(header, "", 0))
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("\r\033[2KDownloading Playlist: Complete\n")
 	}
 	return playlistData, nil
 }

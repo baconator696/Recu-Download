@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"recurbate/playlist"
+	"recurbate/playlist/resolution"
 	"recurbate/tools"
+	"recurbate/tools/avgBuffer"
 	"regexp"
 	"strings"
 	"sync"
@@ -121,7 +123,7 @@ func Parse(siteUrl string, header map[string]string, jsonLoc, maxRes int) (playL
 	// determine url prefix for playlist entries
 	prefix := playlistUrl[:strings.LastIndex(playlistUrl, "/")+1]
 	// if playlist contains resolution selection
-	playlistData, err = resolution(playlistData, prefix, header, maxRes)
+	playlistData, err = get_resolution_playlist(playlistData, prefix, header, maxRes)
 	if err != nil {
 		errorType = "panic"
 		return
@@ -145,22 +147,15 @@ func Parse(siteUrl string, header map[string]string, jsonLoc, maxRes int) (playL
 }
 
 // If playlist contains list of resolutions, return the maximum Resolution playlist
-func resolution(playlistData []byte, prefix string, header map[string]string, maxRes int) ([]byte, error) {
+func get_resolution_playlist(playlistData []byte, prefix string, header map[string]string, maxRes int) ([]byte, error) {
 	playlistRef := string(playlistData)
 	if strings.Contains(playlistRef, "EXT-X-STREAM-INF") {
-		TEMP := playlist.ParseResolutionPlaylistLinks(playlistRef, prefix)
-		var playlistUrl string
-		TEMP.DescendLessOrEqual(playlist.IntStrN(maxRes), func(item playlist.IntStr) bool {
-			playlistUrl = item.Get()
-			return false
-		})
-		if playlistUrl == "" {
-			println("The given Max Resolution isn't available, using maximum")
-			max, _ := TEMP.Max()
-			playlistUrl = max.Get()
+		playlists, err := resolution.New(playlistRef, prefix)
+		if err != nil {
+			return nil, err
 		}
+		playlistUrl := playlists.Max(maxRes)
 		fmt.Printf("\rDownloading Playlist: ")
-		var err error
 		playlistData, err = parseDownloadLoop(playlistUrl, 10, tools.FormatedHeader(header, "", 0))
 		if err != nil {
 			return nil, err
@@ -174,7 +169,8 @@ func resolution(playlistData []byte, prefix string, header map[string]string, ma
 func Mux(playList playlist.Playlist, header map[string]string, startIndex int, durationPercent []float64) (failIndex int, err error) {
 	var data []byte
 	var file *os.File
-	var avgdur, avgsize tools.AvgBuffer
+	avgdur := avgBuffer.New(25)
+	avgsize := avgBuffer.New(25)
 	if startIndex < 0 {
 		startIndex = 0
 	}

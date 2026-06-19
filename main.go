@@ -115,7 +115,7 @@ func main() {
 	// std out
 	go func() {
 		defer wg.Done()
-		recuCLI(statusCh)
+		recuPlaylistCLI(statusCh)
 	}()
 	for msg := range errCh {
 		fmt.Fprintln(os.Stderr, msg)
@@ -123,7 +123,7 @@ func main() {
 	wg.Wait()
 }
 
-func recuCLI(statusCh chan recu.Status) {
+func recuPlaylistCLI(statusCh chan recu.Status) {
 	for msg := range statusCh {
 		switch msg {
 		case recu.FailRetry:

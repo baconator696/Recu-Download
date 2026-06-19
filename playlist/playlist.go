@@ -8,7 +8,6 @@ import (
 )
 
 type Playlist struct {
-	JsonLoc  int
 	M3u8     []byte
 	List     []string
 	Filename string
@@ -25,7 +24,7 @@ func (p PlaylistSlice) Swap(i, j int) {
 	p[i], p[j] = p[j], p[i]
 }
 
-func New(errCh chan error, raw_m3u8 []byte, url string, jsonLoc int) (playList Playlist, err error) {
+func New(errCh chan error, raw_m3u8 []byte, url string) (playList Playlist, err error) {
 	filename, err := createFilename(url)
 	if err != nil {
 		return
@@ -49,7 +48,6 @@ func New(errCh chan error, raw_m3u8 []byte, url string, jsonLoc int) (playList P
 		list = list[1 : len(list)-1]
 	}
 	playList = Playlist{
-		JsonLoc:  jsonLoc,
 		M3u8:     raw_m3u8,
 		List:     list,
 		Filename: filename,

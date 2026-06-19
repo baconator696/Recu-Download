@@ -91,8 +91,8 @@ func ShortenString(str any, ln int) string {
 }
 
 // convert timestamps into percent
-func PercentPrase(times []any) []float64 {
-	var start, end float64
+func PercentPrase(times []any) []float32 {
+	var start, end float32
 	var secs [3]int
 	for i, w := range times {
 		v, ok := w.(string)
@@ -112,13 +112,13 @@ func PercentPrase(times []any) []float64 {
 			cons *= 60
 		}
 	}
-	start = float64(secs[0]) / float64(secs[2]) * 100
-	end = float64(secs[1]) / float64(secs[2]) * 100
-	return []float64{start, end}
+	start = float32(secs[0]) / float32(secs[2]) * 100
+	end = float32(secs[1]) / float32(secs[2]) * 100
+	return []float32{start, end}
 }
 
 // Converts int in Seconds to a formated string
-func FormatMinutes(num float64) string {
+func FormatMinutes(num float32) string {
 	var unit string
 	switch true {
 	case num < 1:
@@ -137,7 +137,7 @@ func FormatMinutes(num float64) string {
 }
 
 // Converts Number of Bytes per second to a formated string
-func FormatBytesPerSecond(num float64) string {
+func FormatBytesPerSecond(num float32) string {
 	var unit string
 	switch true {
 	case num < 1000:

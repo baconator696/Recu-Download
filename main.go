@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"recurbate/config"
+	"recurbate/config/typ"
 	"recurbate/maintenance"
-	"recurbate/recu"
 	"recurbate/tools"
 	"strings"
 	"sync"
@@ -60,82 +59,56 @@ func main() {
 	if tools.Argparser(1) != "" {
 		json_location = tools.Argparser(1)
 	}
-	_, err := os.Stat(json_location)
+	wd, err := os.Getwd()
 	if err != nil {
-		defaultConfig := config.Default()
-		defaultConfig.Save()
-		fmt.Printf("%v created in working directory\nPlease fill in the %v with the \n\tURLs to Download\n\tCookies\n\tUser-Agent\n", json_location, json_location)
-		return
+		panic(err)
 	}
-	jsonData, err := os.ReadFile(json_location)
+	conf, err := typ.New(wd, json_location)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(4)
-	}
-	var cfg config.Config
-	err = json.Unmarshal(jsonData, &cfg)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Reading Json: %v", err)
-		os.Exit(4)
-	}
-	if cfg.Empty() {
-		fmt.Println("please modify config.json")
 		if tools.Argparser(2) != "parse" {
-			return
+			panic(err)
 		}
 	}
-	var switchFunc func(self config.Config, ch chan error, statusCh chan recu.Status)
+
+	var switchFunc func(self *typ.Config)
 	switch tools.Argparser(2) {
-	case "playlist":
-		switchFunc = config.Config.DownloadPlaylist
-		return
-	case "series":
-		switchFunc = config.Config.SerialService
-	case "parse":
-		err := cfg.ParseHtml(tools.Argparser(3))
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-		} else {
-			fmt.Println("Parsed HTML Successfully")
-		}
-		return
+	//case "playlist":
+	//	switchFunc = config.Json.DownloadPlaylist
+	//	return
+	//case "series":
+	//	switchFunc = config.Json.SerialService
+	//case "parse":
+	//	err := jsonConfig.ParseHtml(tools.Argparser(3))
+	//	if err != nil {
+	//		fmt.Fprintln(os.Stderr, err)
+	//	} else {
+	//		fmt.Println("Parsed HTML Successfully")
+	//	}
+	//	return
 	default:
-		switchFunc = config.Config.HybridService
+		switchFunc = config.HybridService
 	}
-	errCh := make(chan error)
-	statusCh := make(chan recu.Status)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		defer close(errCh)
-		defer close(statusCh)
-		switchFunc(cfg, errCh, statusCh)
+		defer close(conf.ErrCh)
+		defer close(conf.MsgCh)
+		switchFunc(&conf)
 	}()
 	// std out
 	go func() {
 		defer wg.Done()
-		recuPlaylistCLI(statusCh)
+		recuPlaylistCLI(conf.MsgCh)
 	}()
-	for msg := range errCh {
+	for msg := range conf.ErrCh {
 		fmt.Fprintln(os.Stderr, msg)
 	}
 	wg.Wait()
 }
 
-func recuPlaylistCLI(statusCh chan recu.Status) {
+func recuPlaylistCLI(statusCh chan string) {
 	for msg := range statusCh {
-		switch msg {
-		case recu.FailRetry:
-			fmt.Printf("Failed Retrying...\n")
-		case recu.DownloadHTML:
-			fmt.Printf("\rDownloading HTML: ")
-		case recu.GetPlaylist:
-			fmt.Printf("\rDownloading Playlists: ")
-		case recu.GetPlaylistUrl:
-			fmt.Printf("\rGetting Link to Playlist: ")
-		case recu.CompleteLastAction:
-			fmt.Printf("Complete\n")
-		}
+		fmt.Print(msg)
 	}
 }

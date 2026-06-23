@@ -3,14 +3,14 @@ package recu
 import (
 	"fmt"
 	"os"
-	"recurbate/config/typ"
+	"recurbate/config/state"
 	"recurbate/tools"
 	"recurbate/tools/avgBuffer"
 	"time"
 )
 
 // Muxes the transport streams and saves it to a file
-func Mux(video *typ.Video, conf *typ.Config) (err error) {
+func Mux(video *state.Video, conf *state.Config) (err error) {
 	var data []byte
 	var file *os.File
 	avgdur := avgBuffer.New(25)
@@ -34,7 +34,7 @@ func Mux(video *typ.Video, conf *typ.Config) (err error) {
 	if video.Offset != 0 {
 		file, err = os.OpenFile(conf.Wd+video.Playlist.Filename+".ts", os.O_APPEND|os.O_WRONLY, 0666)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "original file not found, creating new one: %v", err)
+			conf.ErrCh <- fmt.Errorf("original file not found, creating new one: %v", err)
 		}
 	}
 	// creates file
@@ -65,21 +65,17 @@ func Mux(video *typ.Video, conf *typ.Config) (err error) {
 	for i, tsLink := range video.Playlist.List[video.Offset:endIndex] {
 		i := i + video.Offset
 		if tools.Abort {
-			fmt.Println()
 			return fmt.Errorf("aborting")
 		}
 		startTime := time.Now()
-		err := muxDownloadLoop(&data, tsLink, video.Header, 10, 5)
+		err := muxDownloadLoop(&data, tsLink, video.Header, 10, 5, conf.ErrCh)
 		if err != nil {
-			fmt.Println()
-			err = fmt.Errorf("error: %v\nFailed at %.2f%%", tools.ANSIColor(err, 2), float32(i)/float32(video.Playlist.Len())*100)
-			return err
+			return fmt.Errorf("error: %v\nFailed at %.2f%%", tools.ANSIColor(err, 2), float32(i)/float32(video.Playlist.Len())*100)
 		}
 		endDur := float32(time.Since(startTime).Minutes())
 		_, err = file.Write(data)
 		if err != nil {
-			err = fmt.Errorf("can not write file: %v", err)
-			return err
+			return fmt.Errorf("can not write file: %v", err)
 		}
 		// Calculate User Interface Timings
 		avgsize.Add(float32(len(data)))
@@ -88,7 +84,7 @@ func Mux(video *typ.Video, conf *typ.Config) (err error) {
 		video.State.DownloadSpeed = avgsize.Average() / (getavgdur * 60)
 		video.State.Eta = getavgdur * ((float32(video.Playlist.Len()) * video.Section[1] / 100) - float32(i))
 		video.State.ProgressPercent = float32(i) / float32(video.Playlist.Len()) * 100
-		fmt.Printf("\n\033[A\033[2KDownloading: %s\tRemaining: %s\t%s",
+		conf.MsgCh <- fmt.Sprintf("\n\033[A\033[2KDownloading: %s\tRemaining: %s\t%s",
 			tools.ANSIColor(fmt.Sprintf("%.1f%%", video.State.ProgressPercent), 33),
 			tools.FormatMinutes(video.State.Eta),
 			tools.FormatBytesPerSecond(video.State.DownloadSpeed),
@@ -98,7 +94,7 @@ func Mux(video *typ.Video, conf *typ.Config) (err error) {
 }
 
 // download retry loop for Mux()
-func muxDownloadLoop(data *[]byte, url string, header map[string]string, timeout, maxRetry int) (err error) {
+func muxDownloadLoop(data *[]byte, url string, header map[string]string, timeout, maxRetry int, errCh chan error) (err error) {
 	retry := 0
 	for {
 		var status int
@@ -111,7 +107,7 @@ func muxDownloadLoop(data *[]byte, url string, header map[string]string, timeout
 			continue
 		}
 		if status == 410 {
-			fmt.Fprintln(os.Stderr, "\nDownload Expired")
+			errCh <- fmt.Errorf("Download Expired")
 			retry = maxRetry
 		}
 		retry++
@@ -123,7 +119,7 @@ func muxDownloadLoop(data *[]byte, url string, header map[string]string, timeout
 		if retry > maxRetry {
 			return
 		}
-		fmt.Fprintf(os.Stderr, "\n\033[2A\033[2KError: %v, Retrying...\n", tools.ANSIColor(tools.ShortenString(err, 40), 2))
+		errCh <- fmt.Errorf("Error: %v, Retrying...", tools.ShortenString(err, 40))
 		time.Sleep(time.Second)
 	}
 	return

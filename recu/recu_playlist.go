@@ -2,7 +2,7 @@ package recu
 
 import (
 	"fmt"
-	"recurbate/config/typ"
+	"recurbate/config/state"
 	"recurbate/playlist"
 	"recurbate/playlist/resolution"
 	"recurbate/tools"
@@ -78,16 +78,16 @@ func parseDownloadLoop(status chan string, url string, timeout int, header map[s
 }
 
 // Takes recurbate video URL and returns playlist raw data and returns file name {ts-urls, filename, "done", error}
-func Parse(video *typ.Video) (errT errorType, err error) {
+func Parse(video *state.Video, conf *state.Config) (errT errorType, err error) {
 	// getting webpage
-	video.MsgCh <- "\rDownloading HTML: "
-	htmldata, err := parseDownloadLoop(video.MsgCh, video.Url, 10, tools.FormatedHeader(video.Header, "", 1))
+	conf.MsgCh <- "\rDownloading HTML: "
+	htmldata, err := parseDownloadLoop(conf.MsgCh, video.Url, 10, tools.FormatedHeader(video.Header, "", 1))
 	if err != nil {
 		errT = CLOUDFLARE
 		return
 	}
 	html := string(htmldata)
-	video.MsgCh <- "Complete\n"
+	conf.MsgCh <- "Complete\n"
 	// determine video ID
 	id, err := regexVideoIDMatch(video.Url)
 	if err != nil {
@@ -103,15 +103,15 @@ func Parse(video *typ.Video) (errT errorType, err error) {
 	// parse api url
 	apiUrl := strings.Join(strings.Split(video.Url, "/")[:3], "/") + "/api/video/" + id + "?token=" + token
 	// request api
-	video.MsgCh <- "\rGetting Link to Playlist: "
-	apidata, err := parseDownloadLoop(video.MsgCh, apiUrl, 10, tools.FormatedHeader(video.Header, video.Url, 2))
+	conf.MsgCh <- "\rGetting Link to Playlist: "
+	apidata, err := parseDownloadLoop(conf.MsgCh, apiUrl, 10, tools.FormatedHeader(video.Header, video.Url, 2))
 	if err != nil {
 		errT = OTHER
 		return
 	}
 	api := string(apidata)
 	// continue based on response from api
-	video.MsgCh <- "Complete\n"
+	conf.MsgCh <- "Complete\n"
 	switch api {
 	case "shall_subscribe":
 		errT = WAIT
@@ -131,9 +131,9 @@ func Parse(video *typ.Video) (errT errorType, err error) {
 		return
 	}
 	playlistUrl = strings.ReplaceAll(playlistUrl, "amp;", "")
-	video.MsgCh <- "\rDownloading Playlists: "
+	conf.MsgCh <- "\rDownloading Playlists: "
 	// get m3u8 playlist
-	playlistData, err := parseDownloadLoop(video.MsgCh, playlistUrl, 10, tools.FormatedHeader(video.Header, "", 0))
+	playlistData, err := parseDownloadLoop(conf.MsgCh, playlistUrl, 10, tools.FormatedHeader(video.Header, "", 0))
 	if err != nil {
 		errT = OTHER
 		return
@@ -141,7 +141,7 @@ func Parse(video *typ.Video) (errT errorType, err error) {
 	// determine url prefix for playlist entries
 	prefix := playlistUrl[:strings.LastIndex(playlistUrl, "/")+1]
 	// if playlist contains resolution selection
-	playlistData, err = get_resolution_playlist(video.MsgCh, playlistData, prefix, video.Header, video.MaxRes)
+	playlistData, err = get_resolution_playlist(conf.MsgCh, playlistData, prefix, video.Header, video.MaxRes)
 	if err != nil {
 		errT = OTHER
 		return
@@ -157,11 +157,11 @@ func Parse(video *typ.Video) (errT errorType, err error) {
 			playlistLines[i] = prefix + line
 		}
 	}
-	video.Playlist, err = playlist.New(video.ErrCh, []byte(strings.Join(playlistLines, "\n")), playlistUrl)
+	video.Playlist, err = playlist.New(conf.ErrCh, []byte(strings.Join(playlistLines, "\n")), playlistUrl)
 	if err != nil {
 		errT = OTHER
 	}
-	video.MsgCh <- "Complete\n"
+	conf.MsgCh <- "Complete\n"
 	return
 }
 

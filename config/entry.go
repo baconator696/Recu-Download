@@ -3,16 +3,16 @@ package config
 import (
 	"fmt"
 	"os"
-	"recurbate/config/typ"
+	"recurbate/config/state"
 	"sort"
 	"sync"
 	"time"
 )
 
-func HybridService(conf *typ.Config) {
+func HybridService(conf *state.Config) {
 	// get playlists
 	for _, video := range conf.Videos {
-		GetPlaylist(&video)
+		GetPlaylist(&video, conf)
 	}
 	// makes shortest playlists go first
 	sort.Sort(conf.Videos)
@@ -27,7 +27,7 @@ func HybridService(conf *typ.Config) {
 		serversSet[domainName] = true
 	}
 	var wg sync.WaitGroup
-	for originServer, _ := range serversSet {
+	for originServer := range serversSet {
 		wg.Add(1)
 		go func(originServer string) {
 			defer wg.Done()
@@ -43,16 +43,19 @@ func HybridService(conf *typ.Config) {
 				if video.Playlist.IsNil() {
 					continue
 				}
-				err = GetVideo(&video, conf) 
-				// SAVE STATE TO JSON
+				err = GetVideo(&video, conf)
+				state.JsonMutex.Lock()
+				js := conf.CreateJson(true)
+				err2 := js.SaveJson(conf.Wd, conf.JsonFilename, true)
+				if err2 != nil {
+					conf.ErrCh <- err2
+				}
+				state.JsonMutex.Unlock()
 				if err == nil {
 					continue
 				}
-				err = os.WriteFile(conf.Wd+video.Playlist.Filename+".m3u8", video.Playlist.M3u8, 0666)
-				if err != nil {
-					conf.MsgCh <- string(video.Playlist.M3u8) + "\n"
-					conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v\n", err)
-				}
+				conf.MsgCh <- string(video.Playlist.M3u8) + "\n"
+				conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v\n", err)
 			}
 		}(originServer)
 		time.Sleep(time.Second)
@@ -60,40 +63,41 @@ func HybridService(conf *typ.Config) {
 	wg.Wait()
 }
 
-//func (jsonConf Json) SerialService(errCh chan error, statusCh chan recu.Status) {
-//	playlists := make(playlist.PlaylistSlice, len(jsonConf.Urls))
-//	for i, link := range jsonConf.Urls {
-//		playlists[i] = jsonConf.GetPlaylist(errCh, statusCh, link, i)
-//	}
-//	sort.Sort(playlists)
-//	for i, playList := range playlists {
-//		if playList.IsNil() {
-//			continue
-//		}
-//		fmt.Printf("%d/%d:\n", i+1, len(playlists))
-//		if jsonConf.GetVideo(playList) == nil {
-//			continue
-//		}
-//		err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
-//		if err != nil {
-//			fmt.Println(string(playList.M3u8))
-//			errCh <- fmt.Errorf("Failed to write playlist data: %v\n", err)
-//		}
-//	}
-//}
-//
-//func (jsonConf Json) DownloadPlaylist(errCh chan error, statusCh chan recu.Status) {
-//	for i, v := range jsonConf.Urls {
-//		playList := jsonConf.GetPlaylist(errCh, statusCh, v, i)
-//		if playList.IsNil() {
-//			continue
-//		}
-//		err := os.WriteFile(playList.Filename+".m3u8", playList.M3u8, 0666)
-//		if err != nil {
-//			fmt.Println(string(playList.M3u8))
-//			errCh <- fmt.Errorf("Failed to write playlist data: %v\n", err)
-//			continue
-//		}
-//		fmt.Printf("Completed: %v:%v\n", playList.Filename, v)
-//	}
-//}
+func SerialService(conf *state.Config) {
+	for _, video := range conf.Videos {
+		GetPlaylist(&video, conf)
+	}
+	sort.Sort(conf.Videos)
+	for _, video := range conf.Videos {
+		if video.Playlist.IsNil() {
+			continue
+		}
+		err := GetVideo(&video, conf)
+		js := conf.CreateJson(true)
+		err2 := js.SaveJson(conf.Wd, conf.JsonFilename, true)
+		if err2 != nil {
+			conf.ErrCh <- err2
+		}
+		if err == nil {
+			continue
+		}
+		conf.MsgCh <- string(video.Playlist.M3u8) + "\n"
+		conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v\n", err)
+	}
+}
+
+func DownloadPlaylist(conf *state.Config) {
+	for _, video := range conf.Videos {
+		GetPlaylist(&video, conf)
+		if video.Playlist.IsNil() {
+			continue
+		}
+		err := os.WriteFile(conf.Wd+video.Playlist.Filename+".m3u8", video.Playlist.M3u8, 0666)
+		if err != nil {
+			conf.MsgCh <- string(video.Playlist.M3u8) + "\n"
+			conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v\n", err)
+			continue
+		}
+		conf.MsgCh <- fmt.Sprintf("Completed: %v:%v\n", video.Playlist.Filename, video.Url)
+	}
+}

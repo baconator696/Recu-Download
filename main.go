@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"recurbate/config"
-	"recurbate/config/typ"
+	"recurbate/config/state"
 	"recurbate/maintenance"
 	"recurbate/tools"
 	"strings"
@@ -63,28 +63,27 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	conf, err := typ.New(wd, json_location)
+	conf, err := state.New(wd, json_location)
 	if err != nil {
 		if tools.Argparser(2) != "parse" {
 			panic(err)
 		}
 	}
 
-	var switchFunc func(self *typ.Config)
+	var switchFunc func(self *state.Config)
 	switch tools.Argparser(2) {
-	//case "playlist":
-	//	switchFunc = config.Json.DownloadPlaylist
-	//	return
-	//case "series":
-	//	switchFunc = config.Json.SerialService
-	//case "parse":
-	//	err := jsonConfig.ParseHtml(tools.Argparser(3))
-	//	if err != nil {
-	//		fmt.Fprintln(os.Stderr, err)
-	//	} else {
-	//		fmt.Println("Parsed HTML Successfully")
-	//	}
-	//	return
+	case "playlist":
+		switchFunc = config.DownloadPlaylist
+	case "series":
+		switchFunc = config.SerialService
+	case "parse": // CLI ONLY
+		err := conf.Json_ref.ParseHtml(tools.Argparser(3), wd, json_location)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		} else {
+			fmt.Println("Parsed HTML Successfully")
+		}
+		return
 	default:
 		switchFunc = config.HybridService
 	}

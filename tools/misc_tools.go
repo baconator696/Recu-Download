@@ -91,14 +91,14 @@ func ShortenString(str any, ln int) string {
 }
 
 // convert timestamps into percent
-func PercentPrase(times []any) []float32 {
+func PercentPrase(times []any) [2]float32 {
 	var start, end float32
 	var secs [3]int
 	for i, w := range times {
 		v, ok := w.(string)
 		if !ok {
 			fmt.Fprintf(os.Stderr, "timestamps is in wrong format: %v\n", times)
-			return nil
+			return [2]float32{0, 100}
 		}
 		time := strings.Split(v, ":")
 		cons := 1
@@ -106,7 +106,7 @@ func PercentPrase(times []any) []float32 {
 			w, err := strconv.Atoi(time[j])
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "timestamps is in wrong format: %v\n", times)
-				return nil
+				return [2]float32{0, 100}
 			}
 			secs[i] += w * cons
 			cons *= 60
@@ -114,7 +114,7 @@ func PercentPrase(times []any) []float32 {
 	}
 	start = float32(secs[0]) / float32(secs[2]) * 100
 	end = float32(secs[1]) / float32(secs[2]) * 100
-	return []float32{start, end}
+	return [2]float32{start, end}
 }
 
 // Converts int in Seconds to a formated string

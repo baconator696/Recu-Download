@@ -20,7 +20,7 @@ type Config struct {
 type Video struct {
 	Url            string
 	Header         map[string]string
-	Section        []float32
+	Section        [2]float32
 	section_ref    []any
 	Offset         int
 	importedOffset bool
@@ -129,7 +129,7 @@ func (self *Config) CreateJson(disableMutex bool) (js Json) {
 }
 
 // Parse URL object from json
-func parseUrl(urlObject any) (urlString string, section []float32, section_ref []any, offset int, err error, stage stage) {
+func parseUrl(urlObject any) (urlString string, section [2]float32, section_ref []any, offset int, err error, stage stage) {
 	defer func() {
 		r := recover()
 		if r != nil {
@@ -175,9 +175,6 @@ func parseUrl(urlObject any) (urlString string, section []float32, section_ref [
 		}
 	default:
 		err = fmt.Errorf("url is incorrect type")
-	}
-	if section == nil {
-		section = []float32{0, 100}
 	}
 	return
 }

@@ -8,7 +8,7 @@ import (
 
 // Gets Playlist
 func GetPlaylist(video *state.Video, conf *state.Config) {
-	if video.State.Stage == state.COMPLETE { // url already downloaded
+	if video.State.Complete { // url already downloaded
 		return
 	}
 	errT, err := recu.Parse(video, conf)
@@ -27,7 +27,7 @@ func GetPlaylist(video *state.Video, conf *state.Config) {
 }
 
 // Saves video to working directory
-func GetVideo(video *state.Video, conf *state.Config) error {
+func GetVideo(video *state.Video, conf *state.Config) {
 	// download and mux playlist
 	err := recu.Mux(video, conf)
 	if err == nil {
@@ -35,6 +35,6 @@ func GetVideo(video *state.Video, conf *state.Config) error {
 	} else {
 		conf.ErrCh <- err
 		conf.ErrCh <- fmt.Errorf("Download Failed at line: %v\n", video.Offset)
+		video.State.Fail = true
 	}
-	return err
 }

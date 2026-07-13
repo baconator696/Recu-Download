@@ -98,16 +98,12 @@ func main() {
 	// std out
 	go func() {
 		defer wg.Done()
-		recuPlaylistCLI(conf.MsgCh)
+		for msg := range conf.MsgCh {
+			fmt.Print(msg)
+		}
 	}()
 	for msg := range conf.ErrCh {
 		fmt.Fprintln(os.Stderr, msg)
 	}
 	wg.Wait()
-}
-
-func recuPlaylistCLI(statusCh chan string) {
-	for msg := range statusCh {
-		fmt.Print(msg)
-	}
 }

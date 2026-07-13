@@ -80,6 +80,7 @@ func parseDownloadLoop(status chan string, url string, timeout int, header map[s
 // Takes recurbate video URL and returns playlist raw data and returns file name {ts-urls, filename, "done", error}
 func Parse(video *state.Video, conf *state.Config) (errT errorType, err error) {
 	// getting webpage
+	video.State.Stage = state.HTML
 	conf.MsgCh <- "\rDownloading HTML: "
 	htmldata, err := parseDownloadLoop(conf.MsgCh, video.Url, 10, tools.FormatedHeader(video.Header, "", 1))
 	if err != nil {
@@ -103,6 +104,7 @@ func Parse(video *state.Video, conf *state.Config) (errT errorType, err error) {
 	// parse api url
 	apiUrl := strings.Join(strings.Split(video.Url, "/")[:3], "/") + "/api/video/" + id + "?token=" + token
 	// request api
+	video.State.Stage = state.PLAYLISTURL
 	conf.MsgCh <- "\rGetting Link to Playlist: "
 	apidata, err := parseDownloadLoop(conf.MsgCh, apiUrl, 10, tools.FormatedHeader(video.Header, video.Url, 2))
 	if err != nil {
@@ -131,6 +133,7 @@ func Parse(video *state.Video, conf *state.Config) (errT errorType, err error) {
 		return
 	}
 	playlistUrl = strings.ReplaceAll(playlistUrl, "amp;", "")
+	video.State.Stage = state.PLAYLIST
 	conf.MsgCh <- "\rDownloading Playlists: "
 	// get m3u8 playlist
 	playlistData, err := parseDownloadLoop(conf.MsgCh, playlistUrl, 10, tools.FormatedHeader(video.Header, "", 0))

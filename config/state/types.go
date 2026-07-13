@@ -23,7 +23,7 @@ type Video struct {
 	Section        [2]float32
 	section_ref    []any
 	Offset         int
-	importedOffset bool
+	ImportedOffset bool
 	State          state
 	Playlist       playlist.Playlist
 	MaxRes         int
@@ -33,15 +33,15 @@ type state struct {
 	DownloadSpeed   float32
 	Eta             float32
 	ProgressPercent float32
-	complete        bool
-	fail            bool
+	Complete        bool
+	Fail            bool
 }
 type stage int
 
 const (
-	HTML stage = iota
+	None stage = iota
+	HTML
 	PLAYLISTURL
-	PLAYLISTS
 	PLAYLIST
 	DOWNLOAD
 	COMPLETE
@@ -84,12 +84,17 @@ func New(workingDir string, jsonFilename string) (conf Config, err error) {
 		if err != nil {
 			return
 		}
-		if v.Offset != 0 {
-			v.importedOffset = true
+		if v.Offset > 0 {
+			v.ImportedOffset = true
+		} else {
+			v.Offset = 0
+		}
+		if v.State.Stage == COMPLETE {
+			v.State.Complete = true
 		}
 		v.Header = jsonConfig.Header
-		conf.Videos = append(conf.Videos, v)
 		v.MaxRes = conf.maxRes
+		conf.Videos = append(conf.Videos, v)
 	}
 	return
 }
@@ -104,26 +109,27 @@ func (self *Config) CreateJson(disableMutex bool) (js Json) {
 	urls := make([]any, 0)
 	for _, video := range self.Videos {
 		if video.section_ref == nil {
-			if !video.State.complete && !video.State.fail {
+			if !video.State.Complete && !video.State.Fail {
 				urls = append(urls, video.Url)
-			} else if video.State.complete {
-				urls = append(urls, []any{urls, video.Url, "COMPLETE"})
+			} else if video.State.Complete {
+				urls = append(urls, []any{video.Url, "COMPLETE"})
 			} else {
-				urls = append(urls, []any{urls, video.Url, video.Offset})
+				urls = append(urls, []any{video.Url, video.Offset})
 			}
 		} else {
-			if !video.State.complete && !video.State.fail {
-				urls = append(urls, []any{urls, video.Url, video.section_ref[0], video.section_ref[1], video.section_ref[2]})
-			} else if video.State.complete {
-				urls = append(urls, []any{urls, video.Url, video.section_ref[0], video.section_ref[1], video.section_ref[2], "COMPLETE"})
+			if !video.State.Complete && !video.State.Fail {
+				urls = append(urls, []any{video.Url, video.section_ref[0], video.section_ref[1], video.section_ref[2]})
+			} else if video.State.Complete {
+				urls = append(urls, []any{video.Url, video.section_ref[0], video.section_ref[1], video.section_ref[2], "COMPLETE"})
 			} else {
-				urls = append(urls, []any{urls, video.Url, video.section_ref[0], video.section_ref[1], video.section_ref[2], video.Offset})
+				urls = append(urls, []any{video.Url, video.section_ref[0], video.section_ref[1], video.section_ref[2], video.Offset})
 			}
 		}
 	}
 	if !disableMutex {
 		JsonMutex.Unlock()
 	}
+	js.Urls = urls
 
 	return
 }
@@ -136,6 +142,7 @@ func parseUrl(urlObject any) (urlString string, section [2]float32, section_ref 
 			err = fmt.Errorf("GetVideo: urls are in wrong format, error: %v", r)
 		}
 	}()
+	section = [2]float32{0, 100}
 	switch urlObjectT := urlObject.(type) {
 	case string:
 		urlString = urlObjectT

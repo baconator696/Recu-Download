@@ -11,13 +11,11 @@ import (
 
 // Muxes the transport streams and saves it to a file
 func Mux(video *state.Video, conf *state.Config) (err error) {
+	video.State.Stage = state.DOWNLOAD
 	var data []byte
 	var file *os.File
 	avgdur := avgBuffer.New(25)
 	avgsize := avgBuffer.New(25)
-	if video.Offset < 0 {
-		video.Offset = 0
-	}
 	if tools.Abort {
 		return fmt.Errorf("aborting")
 	}
@@ -31,8 +29,8 @@ func Mux(video *state.Video, conf *state.Config) (err error) {
 		video.Section[1] = 100
 	}
 	// checks if continuation of previous run
-	if video.Offset != 0 {
-		file, err = os.OpenFile(conf.Wd+video.Playlist.Filename+".ts", os.O_APPEND|os.O_WRONLY, 0666)
+	if video.ImportedOffset {
+		file, err = os.OpenFile(conf.Wd+"/"+video.Playlist.Filename+".ts", os.O_APPEND|os.O_WRONLY, 0666)
 		if err != nil {
 			conf.ErrCh <- fmt.Errorf("original file not found, creating new one: %v", err)
 		}
@@ -51,19 +49,20 @@ func Mux(video *state.Video, conf *state.Config) (err error) {
 				}
 			}
 		}
-		file, err = os.OpenFile(conf.Wd+video.Playlist.Filename+".ts", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+		file, err = os.OpenFile(conf.Wd+"/"+video.Playlist.Filename+".ts", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 		if err != nil {
 			return fmt.Errorf("can not create file: %v", err)
 		}
 	}
 	defer file.Close()
 	// muxing loop //
-	if video.Offset == 0 {
+	if !video.ImportedOffset {
 		video.Offset = int(float32(video.Playlist.Len()) * video.Section[0] / 100)
 	}
 	endIndex := int(float32(video.Playlist.Len()) * video.Section[1] / 100)
-	for i, tsLink := range video.Playlist.List[video.Offset:endIndex] {
-		i := i + video.Offset
+	startOffset := video.Offset
+	for i, tsLink := range video.Playlist.List[startOffset:endIndex] {
+		video.Offset = i + startOffset
 		if tools.Abort {
 			return fmt.Errorf("aborting")
 		}
@@ -90,6 +89,8 @@ func Mux(video *state.Video, conf *state.Config) (err error) {
 			tools.FormatBytesPerSecond(video.State.DownloadSpeed),
 		)
 	}
+	video.State.Stage = state.COMPLETE
+	video.State.Complete = true
 	return nil
 }
 

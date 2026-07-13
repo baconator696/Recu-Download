@@ -50,8 +50,10 @@ outerLoop:
 			}
 		}
 		if err == nil {
-			retryState <- fmt.Errorf("%s, status code: %d", ANSIColor(ShortenString(string(data), 100), 2), statusCode)
+			err = fmt.Errorf("%s, status code: %d", ANSIColor(ShortenString(string(data), 100), 2), statusCode)
+			retryState <- err
 		}
+		
 		if retry_count > retry {
 			return
 		}

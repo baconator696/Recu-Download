@@ -44,7 +44,7 @@ func (self *Json) SaveJson(wd string, jsonFilename string, disableMutex bool) (e
 	if err != nil {
 		return fmt.Errorf("error: Parsing Json%v", err)
 	}
-	err = os.WriteFile(wd+jsonFilename, jsonData, 0666)
+	err = os.WriteFile(wd+"/"+jsonFilename, jsonData, 0666)
 	if err != nil {
 		err = fmt.Errorf("error: Saving Json:%v", err)
 		return

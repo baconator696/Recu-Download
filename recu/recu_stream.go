@@ -108,7 +108,7 @@ func muxDownloadLoop(data *[]byte, url string, header map[string]string, timeout
 			continue
 		}
 		if status == 410 {
-			errCh <- fmt.Errorf("Download Expired")
+			errCh <- fmt.Errorf("\nDownload Expired")
 			retry = maxRetry
 		}
 		retry++
@@ -120,7 +120,7 @@ func muxDownloadLoop(data *[]byte, url string, header map[string]string, timeout
 		if retry > maxRetry {
 			return
 		}
-		errCh <- fmt.Errorf("Error: %v, Retrying...", tools.ShortenString(err, 40))
+		errCh <- fmt.Errorf("\nError: %v, Retrying...", tools.ShortenString(err, 40))
 		time.Sleep(time.Second)
 	}
 	return

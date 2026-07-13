@@ -37,7 +37,7 @@ func HybridService(conf *state.Config) {
 				video := &conf.Videos[i]
 				compare, err := video.Playlist.PlaylistOrigin()
 				if err != nil {
-					conf.ErrCh <- fmt.Errorf("compare, err := video.Playlist.PlaylistOrigin(): %v\n", err)
+					conf.ErrCh <- fmt.Errorf("compare, err := video.Playlist.PlaylistOrigin(): %v", err)
 					continue
 				}
 				if originServer != compare {
@@ -52,7 +52,7 @@ func HybridService(conf *state.Config) {
 				err = js.SaveJson(conf.Wd, conf.JsonFilename, true)
 				if err != nil {
 					conf.MsgCh <- string(video.Playlist.M3u8) + "\n"
-					conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v\n", err)
+					conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v", err)
 				}
 				state.JsonMutex.Unlock()
 			}
@@ -79,7 +79,7 @@ func SerialService(conf *state.Config) {
 		err := js.SaveJson(conf.Wd, conf.JsonFilename, true)
 		if err != nil {
 			conf.MsgCh <- string(video.Playlist.M3u8) + "\n"
-			conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v\n", err)
+			conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v", err)
 		}
 		state.JsonMutex.Unlock()
 	}
@@ -95,7 +95,7 @@ func DownloadPlaylist(conf *state.Config) {
 		err := os.WriteFile(conf.Wd+"/"+video.Playlist.Filename+".m3u8", video.Playlist.M3u8, 0666)
 		if err != nil {
 			conf.MsgCh <- string(video.Playlist.M3u8) + "\n"
-			conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v\n", err)
+			conf.ErrCh <- fmt.Errorf("Failed to write playlist data: %v", err)
 			continue
 		}
 		conf.MsgCh <- fmt.Sprintf("Completed: %v:%v\n", video.Playlist.Filename, video.Url)

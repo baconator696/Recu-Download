@@ -135,16 +135,25 @@ func appendCheck(url string) (appended string, err error) {
 		return url, fmt.Errorf("uid not found")
 	}
 	uidMatch := uidMatches[1]
+	if len(uidMatch) < 6 {
+		return url, fmt.Errorf("uid too short")
+	}
 	expiresMatches := RegexExpires.FindStringSubmatch(url)
 	if len(expiresMatches) < 2 {
 		return url, fmt.Errorf("expires not found")
 	}
 	expiresMatch := expiresMatches[1]
+	if len(expiresMatch) < 4 {
+		return url, fmt.Errorf("expires too short")
+	}
 	requestMatches := RegexRequest.FindStringSubmatch(url)
 	if len(requestMatches) < 2 {
 		return url, fmt.Errorf("request_id not found")
 	}
 	requestMatch := requestMatches[1]
+	if len(requestMatch) < 4 {
+		return url, fmt.Errorf("request_id too short")
+	}
 	expiredSeg := reverseString(reverseString(expiresMatch)[0:4])
 	appended = fmt.Sprintf("%s&check=%s%s%s", url, requestMatch[0:4], uidMatch[2:6], expiredSeg)
 	return

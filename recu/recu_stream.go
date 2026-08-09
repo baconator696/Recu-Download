@@ -61,6 +61,7 @@ func Mux(video *state.Video, conf *state.Config) (err error) {
 	}
 	endIndex := int(float32(video.Playlist.Len()) * video.Section[1] / 100)
 	startOffset := video.Offset
+	refTotalInScope := endIndex - startOffset
 	for i, tsLink := range video.Playlist.List[startOffset:endIndex] {
 		video.Offset = i + startOffset
 		if tools.Abort {
@@ -81,8 +82,8 @@ func Mux(video *state.Video, conf *state.Config) (err error) {
 		avgdur.Add(endDur)
 		getavgdur := avgdur.Average()
 		video.State.DownloadSpeed = avgsize.Average() / (getavgdur * 60)
-		video.State.Eta = getavgdur * ((float32(video.Playlist.Len()) * video.Section[1] / 100) - float32(i))
-		video.State.ProgressPercent = float32(i) / float32(video.Playlist.Len()) * 100
+		video.State.Eta = getavgdur * float32(refTotalInScope-i)
+		video.State.ProgressPercent = float32(i) / float32(refTotalInScope) * 100
 		conf.MsgCh <- fmt.Sprintf("\n\033[A\033[2KDownloading: %s\tRemaining: %s\t%s",
 			tools.ANSIColor(fmt.Sprintf("%.1f%%", video.State.ProgressPercent), 33),
 			tools.FormatMinutes(video.State.Eta),

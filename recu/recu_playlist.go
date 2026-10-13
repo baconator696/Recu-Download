@@ -31,44 +31,68 @@ const (
 	CLOUDFLARE
 )
 
-// returns token from given recu html
-func regexTokenMatch(html string, videoid string) (string, error) {
-	term := fmt.Sprintf(`%s"[\n\s]*data-token="([^"]*)"`, videoid)
-	regexToken := regexp.MustCompile(term)
-	matches := regexToken.FindStringSubmatch(html)
-	if len(matches) > 1 {
-		return matches[1], nil
-	}
-	return "", fmt.Errorf("video token not found")
-}
-
 var (
-	regexVideoID      *regexp.Regexp
-	regexVideoIDMutex sync.Mutex
+	// video ID
+	regexVideoId      *regexp.Regexp
+	regexVideoIdMutex sync.Mutex
+	// TOKEN
+	regexToken      *regexp.Regexp
+	regexTokenMutex sync.Mutex
+	// requestId
+	regexRequestId      *regexp.Regexp
+	regexRequestIdMutex sync.Mutex
 )
 
 // return video ID from given video url
 func regexVideoIDMatch(text string) (string, error) {
-	regexVideoIDMutex.Lock()
-	if regexVideoID == nil {
-		regexVideoID = regexp.MustCompile(`([\d]*)/play`)
+	regexVideoIdMutex.Lock()
+	if regexVideoId == nil {
+		regexVideoId = regexp.MustCompile(`([\d]*)/play`)
 	}
-	regexVideoIDMutex.Unlock()
-	matches := regexVideoID.FindStringSubmatch(text)
+	regexVideoIdMutex.Unlock()
+	matches := regexVideoId.FindStringSubmatch(text)
 	if len(matches) > 1 {
 		return matches[1], nil
 	}
 	return "", fmt.Errorf("video id match not found")
 }
 
-func parseDownloadLoop(status chan string, url string, timeout int, header map[string]string) (data []byte, err error) {
+// return video TOKEN from given video url
+func regexTokenMatch(text string) (string, error) {
+	regexTokenMutex.Lock()
+	if regexToken == nil {
+		regexToken = regexp.MustCompile(`window\.token = "([^"]+)"`)
+	}
+	regexTokenMutex.Unlock()
+	matches := regexToken.FindStringSubmatch(text)
+	if len(matches) > 1 {
+		return matches[1], nil
+	}
+	return "", fmt.Errorf("video TOKEN not found")
+}
+
+// return requestId from given video url
+func regexRequestIdMatch(text string) (string, error) {
+	regexRequestIdMutex.Lock()
+	if regexRequestId == nil {
+		regexRequestId = regexp.MustCompile(`window\.requestId = "([^"]+)"`)
+	}
+	regexRequestIdMutex.Unlock()
+	matches := regexRequestId.FindStringSubmatch(text)
+	if len(matches) > 1 {
+		return matches[1], nil
+	}
+	return "", fmt.Errorf("requestId match not found")
+}
+
+func parseDownloadLoop(status chan string, url string, retry int, timeout int, header map[string]string) (data []byte, err error) {
 	retryCh := make(chan error)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		defer close(retryCh)
-		data, _, err = tools.RequestRetry(url, timeout, retryCh, []int{200}, 30, time.Millisecond*200, timeout, header, nil, "GET")
+		data, _, err = tools.RequestRetry(url, retry, retryCh, []int{200}, 30, time.Millisecond*200, timeout, header, nil, "GET")
 	}()
 	for range retryCh {
 		status <- "Failed Retrying...\n"
@@ -82,7 +106,7 @@ func Parse(video *state.Video, conf *state.Config) (errT errorType, err error) {
 	// getting webpage
 	video.State.Stage = state.HTML
 	conf.MsgCh <- "\rDownloading HTML: "
-	htmldata, err := parseDownloadLoop(conf.MsgCh, video.Url, 10, tools.FormatedHeader(video.Header, "", 1))
+	htmldata, err := parseDownloadLoop(conf.MsgCh, video.Url, 3, 10, tools.FormatedHeader(video.Header, "", tools.HTML_HEADER, nil))
 	if err != nil {
 		errT = CLOUDFLARE
 		return
@@ -96,17 +120,24 @@ func Parse(video *state.Video, conf *state.Config) (errT errorType, err error) {
 		return
 	}
 	// determine unique page token
-	token, err := regexTokenMatch(html, id)
+	token, err := regexTokenMatch(html)
+	if err != nil {
+		errT = OTHER
+		return
+	}
+	// determine unique request ID
+	requestId, err := regexRequestIdMatch(html)
 	if err != nil {
 		errT = OTHER
 		return
 	}
 	// parse api url
-	apiUrl := strings.Join(strings.Split(video.Url, "/")[:3], "/") + "/api/video/" + id + "?token=" + token
+	apiUrl := strings.Join(strings.Split(video.Url, "/")[:3], "/") + "/api/video/" + id + "?parent-request=" + requestId
+	fmt.Println(apiUrl)
 	// request api
 	video.State.Stage = state.PLAYLISTURL
 	conf.MsgCh <- "\rGetting Link to Playlist: "
-	apidata, err := parseDownloadLoop(conf.MsgCh, apiUrl, 10, tools.FormatedHeader(video.Header, video.Url, 2))
+	apidata, err := parseDownloadLoop(conf.MsgCh, apiUrl, 3, 10, tools.FormatedHeader(video.Header, video.Url, tools.API_PLAYLIST_HEADER, &token))
 	if err != nil {
 		errT = OTHER
 		return
@@ -136,7 +167,7 @@ func Parse(video *state.Video, conf *state.Config) (errT errorType, err error) {
 	video.State.Stage = state.PLAYLIST
 	conf.MsgCh <- "\rDownloading Playlists: "
 	// get m3u8 playlist
-	playlistData, err := parseDownloadLoop(conf.MsgCh, playlistUrl, 10, tools.FormatedHeader(video.Header, "", 0))
+	playlistData, err := parseDownloadLoop(conf.MsgCh, playlistUrl, 3, 10, tools.FormatedHeader(video.Header, "", tools.PLAYLIST_HEADER, &token))
 	if err != nil {
 		errT = OTHER
 		return
@@ -177,7 +208,7 @@ func get_resolution_playlist(statusCh chan string, playlistData []byte, prefix s
 			return nil, err
 		}
 		playlistUrl := playlists.Max(maxRes)
-		playlistData, err = parseDownloadLoop(statusCh, playlistUrl, 10, tools.FormatedHeader(header, "", 0))
+		playlistData, err = parseDownloadLoop(statusCh, playlistUrl, 3, 10, tools.FormatedHeader(header, "", tools.PLAYLIST_HEADER, nil))
 		if err != nil {
 			return nil, err
 		}

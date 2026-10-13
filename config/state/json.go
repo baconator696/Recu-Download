@@ -73,7 +73,7 @@ func (self Json) parseMaxRes() int {
 // Parse Urls from HTML    // CLI ONLY
 func (self Json) ParseHtml(url string, wd string, jsonFilename string) (err error) {
 	fmt.Println("Downloading HTML")
-	resp, code, err := tools.Request(url, 10, tools.FormatedHeader(self.Header, "", 1), nil, "GET")
+	resp, code, err := tools.Request(url, 10, tools.FormatedHeader(self.Header, "", tools.HTML_HEADER, nil), nil, "GET")
 	if code != 200 || err != nil {
 		if err == nil {
 			err = fmt.Errorf("response: %s, status code: %d, cloudflare blocked", tools.ANSIColor(string(resp), 2), code)

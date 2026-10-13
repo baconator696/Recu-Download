@@ -152,49 +152,59 @@ func FormatBytesPerSecond(num float32) string {
 	return fmt.Sprintf("%.1f %s", num, unit)
 }
 
+type HeaderType int
+
+const (
+	PLAYLIST_HEADER HeaderType = iota
+	API_PLAYLIST_HEADER
+	API_TOKEN_SWAP_HEADER
+	HTML_HEADER
+)
+
 // Return Formated Headers, url needed only if i is 2
-func FormatedHeader(refHeader map[string]string, videoUrl string, i int) (header map[string]string) {
+func FormatedHeader(refHeader map[string]string, videoUrl string, headerStyle HeaderType, token *string) (header map[string]string) {
+	var xtoken string
+	if token != nil {
+		xtoken = *token
+	}
 	header = make(map[string]string)
 	for k, v := range refHeader {
 		header[k] = v
 	}
-	header["Accept"] = "*/*"
 	header["Accept-Language"] = "en-US,en;q=0.9"
-	header["Origin"] = "https://recu.me"
-	header["Priority"] = "u=1, i"
-	header["Sec-Ch-Ua"] = `"Chromium";v="128", "Not;A=Brand";v="24"`
-	header["Sec-Ch-Ua-Full-Version-List"] = `"Chromium";v="128.0.6613.120", "Not;A=Brand";v="24.0.0.0"`
-	header["Sec-Ch-Ua-Mobile"] = "?0"
-	header["Sec-Ch-Ua-Platform"] = `"Windows"`
-	header["Sec-Fetch-Dest"] = "empty"
-	header["Sec-Fetch-Mode"] = "cors"
-	header["Sec-Ch-Ua-Arch"] = `"x86"`
-	header["Sec-Ch-Ua-Bitness"] = `"64"`
-	header["Sec-Ch-Ua-Full-Version"] = `"128.0.2739.67"`
-	header["Sec-Ch-Ua-Model"] = `""`
-	header["Sec-Ch-Ua-Platform-Version"] = `"15.0.0"`
-	switch i {
-	case 1: // html
-		header["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-		header["Referer"] = "https://recu.me/"
-		header["Sec-Fetch-Dest"] = "document"
-		header["Sec-Fetch-Mode"] = "navigate"
-		header["Sec-Fetch-Site"] = "none"
-		header["Sec-Fetch-User"] = "?1"
-		header["Upgrade-Insecure-Requests"] = "1"
-	case 2: // playlist link
+	//header["Accept-Encoding"] = "gzip, deflate, br, zstd"
+	header["Connection"] = "keep-alive"
+	switch headerStyle {
+	case HTML_HEADER:
+		header["Accept"] = "*/*"
+		header["X-Requested-With"] = "XMLHttpRequest"
+		header["Sec-Fetch-Dest"] = "empty"
+		header["Sec-Fetch-Mode"] = "cors"
+		header["Sec-Fetch-Site"] = "same-origin"
+		header["Priority"] = "u=0"
+		header["TE"] = "trailers"
+	case API_PLAYLIST_HEADER:
 		header["Referer"] = videoUrl
 		header["Sec-Fetch-Site"] = "same-origin"
 		header["X-Requested-With"] = "XMLHttpRequest"
+		header["X-Api-Token"] = xtoken
+	case API_TOKEN_SWAP_HEADER:
+		header["Accept"] = "*/*"
+		header["X-Requested-With"] = "XMLHttpRequest"
+		header["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+		header["Origin"] = "https://recu.me"
+		header["Sec-Fetch-Dest"] = "empty"
+		header["Sec-Fetch-Mode"] = "cors"
+		header["Sec-Fetch-Site"] = "same-origin"
+		header["Priority"] = "u=4"
+		header["X-Api-Token"] = xtoken
 	default: // playlist
-		header["Sec-Fetch-Site"] = "cross-site"
 		delete(header, "Cookie")
-		delete(header, "Sec-Ch-Ua-Full-Version-List")
-		delete(header, "Sec-Ch-Ua-Arch")
-		delete(header, "Sec-Ch-Ua-Bitness")
-		delete(header, "Sec-Ch-Ua-Full-Version")
-		delete(header, "Sec-Ch-Ua-Model")
-		delete(header, "Sec-Ch-Ua-Platform-Version")
+		header["Accept"] = "*/*"
+		header["Origin"] = "https://recu.me"
+		header["Sec-Fetch-Dest"] = "empty"
+		header["Sec-Fetch-Mode"] = "cors"
+		header["Sec-Fetch-Site"] = "cross-site"
 	}
 	return
 }

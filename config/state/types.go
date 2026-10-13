@@ -69,8 +69,8 @@ func New(workingDir string, jsonFilename string) (conf Config, err error) {
 		}
 	}
 	if jsonConfig.isEmptyJson() {
-		err = fmt.Errorf("Please fill in the %v with the \n\tURLs to Download\n\tCookies\n\tUser-Agent\n", jsonFilename)
-		return
+		fmt.Printf("Please fill in the %v with the \n\tURLs to Download\n\tCookies\n\tUser-Agent\n", jsonFilename)
+		os.Exit(0)
 	}
 	conf.JsonFilename = jsonFilename
 	conf.Json_ref = jsonConfig

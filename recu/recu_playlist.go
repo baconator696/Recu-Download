@@ -133,7 +133,6 @@ func Parse(video *state.Video, conf *state.Config) (errT errorType, err error) {
 	}
 	// parse api url
 	apiUrl := strings.Join(strings.Split(video.Url, "/")[:3], "/") + "/api/video/" + id + "?parent-request=" + requestId
-	fmt.Println(apiUrl)
 	// request api
 	video.State.Stage = state.PLAYLISTURL
 	conf.MsgCh <- "\rGetting Link to Playlist: "

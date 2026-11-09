@@ -1,6 +1,7 @@
 package recu
 
 import (
+	"encoding/json"
 	"fmt"
 	"recurbate/config/state"
 	"recurbate/playlist"
@@ -136,12 +137,24 @@ func Parse(video *state.Video, conf *state.Config) (errT errorType, err error) {
 	// request api
 	video.State.Stage = state.PLAYLISTURL
 	conf.MsgCh <- "\rGetting Link to Playlist: "
-	apidata, err := parseDownloadLoop(conf.MsgCh, apiUrl, 3, 10, tools.FormatedHeader(video.Header, video.Url, tools.API_PLAYLIST_HEADER, &token))
+	apijsonraw, err := parseDownloadLoop(conf.MsgCh, apiUrl, 3, 10, tools.FormatedHeader(video.Header, video.Url, tools.API_PLAYLIST_HEADER, &token))
 	if err != nil {
 		errT = OTHER
 		return
 	}
-	api := string(apidata)
+	var apijson map[string]any
+	err = json.Unmarshal([]byte(apijsonraw), &apijson)
+	if err != nil {
+		err = fmt.Errorf("api json unmarshalling error: %v\n", err)
+		errT = OTHER
+		return
+	}
+	api, ok := apijson["player"].(string)
+	if !ok {
+		errT = OTHER
+		err = fmt.Errorf("error parsing api json: 'player'")
+		return
+	}
 	// continue based on response from api
 	conf.MsgCh <- "Complete\n"
 	switch api {
